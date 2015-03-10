@@ -1,3 +1,27 @@
+## Given a trade id, find out BFGW and Cameron instances
+
+In localdb:
+
+	select * from FXSpotForwardTrade where id=[tradeid]
+
+the record would contain [userId], which is basically PantherUser::id, 
+
+ - PantherUser::id (globaldb) -> ExternalEntity::principalId
+ - ExternalEntity::externalId -> FixID::id
+ - FixID::compId -> FixSession::name
+ - FixSession:applicationId -> FixApplication::id
+
+Then:
+
+	select * from FixApplication where id in (select applicationId from FixSession where name in (select compId from FixID where id in (select externalId from ExternalEntity where principalId=44836007)))
+
+FixApplication::name is BFGW identifier and Cameron session name:
+
+	ww | grep [name]
+
+If there are multiple instances, use wmg to find out which is the master
+
+
 ## What is CnR ?
 
 See bana_fix_gateway/client/EngineConnection constructor
@@ -33,6 +57,51 @@ Try to map it to a standard tenor:
 	tenors = Calendar::getSurroundingTenors(m_input.ccyPair, requestDate, m_input.tradingDay);
 
 
+## How are outright prices calculated ?
+
+From FXPricingUtils.java:
+
+	calculateOutright
+	Input: spotBid, spotAsk, fwdBidPnt, fwdAskPnt, pipMultiplier
+
+	For TDY, forward points for TOM are also required:
+
+	TDY: 
+		bid = spotBid - (fwdAsk + fwdTNAsk) * pipMultiplier
+		ask = spotAsk - (fwdBid + fwdTNBid) * pipMultiplier
+
+	TOM:
+		bid = spotBid - fwdAsk * pipMultiplier
+		ask = spotAsk - fwdBid * pipMultiplier
+
+	SPOT:
+		bid = spotBid
+		ask = spotAsk
+
+	POST SPOT:
+		bid = spotBid + fwdAsk * pipMultiplier
+		ask = spotAsk + fwdBid * pipMultiplier
+
+Question: Why the special logic for TDY and TOM ? 
+
+1. By convention, forward points for TDY (ON) is for over-night, between TDY and TOM, 
+   instead of TDY and SP.
+2. The forward points for TDY and TOM have the same sign as post-spot points, even
+   though they should be in opposite direction. So whey applying them, unlike normal
+   post-spot points, we need to subtract them from instead of add them to spot rate.
+
+
+## Pricing
+
+Trader rate may differ from sales rate on
+
+- spot
+- forward points
+
+how are these difference configured/used ?
+
+
+## Rounding
 
 
 ## How does bana_fix_gateway choose account ?

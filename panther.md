@@ -1,4 +1,14 @@
-###################################################################################
+<!-- ################################################################################### -->
+
+
+QA7 user
+
+	fxqas07
+
+Build 32bit with cmake:
+
+	cmake -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_SHARED_LINKER_FLAGS=-m32 ../
+
 
 To update spec only
 
@@ -18,7 +28,7 @@ FIX tags are defined in
 
 	libs/ext/fix/StandardFixTags.hpp
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Utilities
 
@@ -154,7 +164,7 @@ See also:
 
 - `libs/panther/registry/RegistryUpdater`: update registry at runtime
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Logging
 
@@ -170,7 +180,7 @@ Location can be `<stdout>`, `<stderr>` or a `dir path`
 	/ENVIRONMENT/logging
 	/PROCESS/logging
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Concurrency
 
@@ -208,13 +218,13 @@ or
 	Task : private Thread {
 	bool onProcess() { return function_or_functor(); }
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Caching
 
 libs/spec/cache
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # DB
 
@@ -239,7 +249,7 @@ libs/ext/db
 libs/panther/db
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # RPC
 
@@ -255,7 +265,6 @@ libs/panther/db
 * when an rvrd starts up, it joins the "global"  mcast group for the region and connects to
   its peers as specified in config
 * rvrd listens for rvg messages in the "global" mcast group and forwards those to neighbors
-
 
 
 * when a panther process starts up, it looks for a running rvd on the same machine and starts
@@ -561,6 +570,7 @@ Transport types are defined as:
 			P2P_TCP 			= 5,
 			SERVER_P2P        	= 6,
 			TIBRV_PQUEUE      	= 7,
+			INPROC				= 8,
 			INVALID	 			= 100
 		};
 		static const string MULTICAST_PUBSUB_STR  		= "mcc_ps";
@@ -912,14 +922,33 @@ as the first is the special case where `key == ''`.
 - relationship among `ContractTopic`'s fields
 - relationship between the actual RV topic and `ContractTopic`
 
-
-
 Cache update messages are broadcasted with the following subjects:
 
 	CacheHelper<T>::getBroadcastTopic() {
 		return Router::Topic( ContractTopics::instance().makeTopicString( T::BROADCAST_ROUTERTYPE, typeid(T).name()) );
 
-###################################################################################
+
+## In-process RPC
+
+RPC can be made in-proc if both proxy and stub are running in the same process.
+First instruct spec to generate in-proc code:
+
+	contract FXOutrightListener
+	generate
+		c++ client server inproc code in ...
+
+Stub:
+- the original on inproc code is unchanged, when an encoded method call message comes, it
+  checks the method name and calls handle_onQuote, which in turn calls onQuote
+- registerService will register an instance of the stub with the Routers::instance()
+
+Proxy:
+- in constructor, it checks ContractTopics to see if in-proc mode should be used
+	static const bool isInProcCall = ml::panther::serialize::contract::ContractTopics::instance().isInProc("FXOutrightListener");
+  if yes, it tries to grab a copy of the registered stub instance directly
+- in onQuote, it directly invokes stub->onQuote
+
+<!-- ################################################################################### -->
 
 # Domain
 
@@ -935,7 +964,7 @@ Tables in global db
 - VolumeBand
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # SPEC
 
@@ -1054,7 +1083,7 @@ The key is the `ByteArrayStream` class:
 
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Topic
 
@@ -1230,9 +1259,103 @@ These are/use tibrv subjects:
 - RoutersImpl::send()
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Tips
+
+##### User Permissions for Currency Pair 
+
+Permissions are specified in
+
+	select id, name, assetId, description, hasAction, internal, clientPrivilege, serverPrivilege from Permission
+
+	id	name						description							assetId	hasAction	internal	clientPrivilege	serverPrivilege
+	1	Everything					Permit access to all static data	5		Y			Y			Y				Y
+	10	EXECUTE_TRADES				Execute trades						10		N			N			N				Y
+	12	EXECUTE_TRADES_FOR_GROUP	Execute trades for group			10		N			N			N				Y
+	14	EXECUTE_TRADES_FOR_CPARTY	Execute trades for counterparty		10		N			N			N				Y
+	16	EXECUTE_TRADES_FOR_BANK		Execute trades for bank				10		N			N			N				Y
+	20	VIEW_BLOTTER				View blotter trades					10		N			N			Y				Y
+	22	VIEW_BLOTTER_FOR_GROUP		View blotter trades for group		10		N			N			Y				Y
+	26	VIEW_BLOTTER_FOR_BANK		View blotter trades for bank		10		N			N			Y				Y
+
+
+Currency pair classifications are defined in:
+
+	class CurrencyPairClassification version 1.0
+
+	// Currency pair
+	ccyPair char(6) readOnly foreign key CurrencyPair(name);
+
+	// classificationType - type 
+	groupName varchar(32) readOnly foreign key CurrencyPairGroups(groupName);
+	
+	// A rank may be used for any other purposes like sorting etc
+	rank int32 null;
+
+	// note, same currency pair in multiple groups allowed
+	with primary key (ccyPair, groupName)
+
+
+	select * from CurrencyPairClassification
+
+	id	ccyPair	groupName	rank
+	8	AUDUSD	Majors		900	
+	19	AUDUSD	G10			300	
+	5	EURCHF	Majors		600	
+	12	EURDKK	Majors		1300
+	4	EURGBP	Majors		500	
+	2	EURJPY	Majors		300	
+
+
+
+CcyPairGroupPermissions links Permissions to CurrencyPairClassifications
+
+	class CcyPairGroupPermissions version 1.0 
+
+    //CurrencyPairClassification Id
+    ccyPairClassificationId int64 readOnly foreign key CurrencyPairClassification(id);
+    
+    //Permission Id
+    permissionId int64 readOnly foreign key Permission(id);
+
+So the granularity of control is at currency pair level as CurrencyPairClassification is per currency pair. To create group
+level control, create one-to-many mapping from Permission to CurrencyPairClassifications in CcyPairGroupPermissions
+by mapping the same permission id to all entries of the same group in CurrencyPairClassifications.
+
+RolePermission links Role to Permission. Note that Read/Write is part of this mapping instead of Permission. Bad design.
+
+	class RolePermission version 1.0
+
+	//RoleID
+	roleID int64 readOnly foreign key PantherRole(id);
+	
+	//PermissionID
+	permissionID int64 readOnly foreign key Permission(id);
+			
+	//W - Write , R - Read, B - Both, N - None
+	actions char(1);
+
+
+PantherUserRole links PantherUser to PantherRole
+
+	class PantherUserRole version 1.0 
+
+	//User Id
+	userId int64 readOnly foreign key PantherUser(id);
+	
+	//Role Id
+	roleId int64 readOnly foreign key PantherRole(id);
+
+
+The mappings
+
+	PantherUser <-- PantherUserRole --> PantherRole <-- RolePermission --> Permission <-- CcyPairGroupPermissions --> CurrencyPairClassification
+
+
+When a user logs in, the login server returns the list of user permissions in response. 
+Thus, user role update will not take effect before the next login.
+
 
 ##### Cameron
 
@@ -1363,7 +1486,7 @@ This will show only one trace for each message. See
 	LINFO("%s", st.toString().c_str());
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Issues
 

@@ -1442,6 +1442,63 @@ Checking interval is set to 10ms:
 
 # The Bubble Net
 
+	// the parent/child relationship is maintained in cause nodes and effect nodes
+	// cause nodes are essentially input nodes of compute nodes
+	// effect nodes are required to push change top-down, 
+	// the set of cause nodes and effect nodes of a node is updated whenever a node
+	// is involed in BubbleNet::addComputeNode*
+	//
+	// so each time a source node is updated, a top-down tree traversal based on 
+	// effect nodes is performed, see BubbleNet::flushTicks
+
+	class UntypedNode {
+		std::string m_name;
+		mutable int m_rank;
+		std::set<ComputeNode*> m_effects;
+
+		virtual const std::vector<const UntypedNode*> getCauseNodes() const = 0;
+		const std::set<ComputeNode*> getEffectNodes() const { return m_effects; }
+	}
+
+	// A node has content
+	template <typename T>
+	class Node : public UntypedNode {
+		boost::optional<T> m_content;
+
+		void doSet(const T& t) { m_content = t; }
+
+		// used for argument validation
+		bool testGet() const {
+			return m_content;
+		}
+		const T& doGet() const { 
+			if (m_content)
+				return *m_content; 
+			throw UninitializedNodeException();
+		}
+	}
+
+	// A source node only has content, no internal logic.
+	template <typename T>
+	class SourceNode : public Node<T> {
+		virtual const std::vector<const UntypedNode*> getCauseNodes() const {
+			// always return an empty vec
+		}
+	}
+
+
+	class ComputeNode : public Node<InternalTPSTick::CPtr> {
+		std::vector<const UntypedNode*> m_causes;
+		void addCause(const UntypedNode* cause) { m_causes.push_back(cause); }
+		virtual const std::vector<const UntypedNode*> getCuaseNodes() const { return m_causes; }
+
+		virtual bool doRecompute() = 0;
+		bool tick(bool _truncateReasoning) {
+			this->truncateReasoning = _truncateReasoning;
+			return doRecompute();
+		}
+	}
+
 	int_tps_tick
 
 	int_tps_tick    InternalTPSTick, dummyTick
@@ -1469,7 +1526,78 @@ Checking interval is set to 10ms:
 	initializeTick_computeNode
 
 
+
+
+
+
+
+
 	InternalTPSTick: InternalTPSTick, a dummy tick
 
 	initializeTick_computeNode: InternalTPSTick, InitializeTick, initialize tick
 
+
+
+SourceNode< TPSSpotSalesMarkupData* >::Ptr    m_spotSalesMarkup_sourceNode;
+
+
+
+
+<!-- ################################################################################# -->
+
+# Refactoring
+
+## ExecutionEngine 
+
+- manages all subscription data processing
+- has a list of ExecutionWorkers
+- allocate subscription id from new subscriptions
+- assign new top-level subscription to worker based on load
+- assign child-subscription to the same worker as parent subscription
+
+
+## ExecutionWorker
+
+- maintains an array of subscriptions, Subscription::m_index reflects its position in this array.
+  NullSubscription is used to avoid pointer check
+- uses ConcurrentQueue to hold events, add, reload, unsubscribe, recalc are handled as normal events
+
+
+## Event routing and handling
+
+- each worker has a ExecutionWorkerDataDispatcher, which interfaces with DataProvider, SpotProvider etc as usual
+- all subscriptions inside a worker subscribe to the worker's own dispatcher
+- a subscription maintains an array of event handlers, when making a subscription, the index of
+  the event handler is passed to ExecutionWorkerDataDispatcher
+- ExecutionWorkerDataDispatcher records each subscriber's subscription index (it's position inside worker's array)
+  and the handler index. when a event arrives, it's sent as <subIndex, hdlrIndex, event>, this makes event
+  data small and its dispatching fast
+
+- for spot and forward ticks, subscription management is internalized. there's only a single spot tick subscription
+  per worker per currency pair. when a new ticks arrives, only one copy of tick data is passed from spot provider
+  into the internal processing loop of worker. the worker maintains an array of <subIndex, hdrlIndex> for the
+  currency pair and feed them with the same tick. fast and efficient
+
+## Special notes:
+
+- creation of a normal child subscription inside reload is done synchronously and the child subs is 
+  added to the worker synchronously. this avoids the race condition that a subscription is removed its
+  children finishes reloading. this applies to real subscription of a shared leg subscription as well
+- a subscription should keep track of its subscriptions and is able to unsubscribe all of them
+- a subscription should keep track of its child subscriptions
+- when reloading an existing subscription,  should first do unsubscribe for itself and all of its non-shared
+  children, and remove all of non-shared children
+- when unsubscribing, need to unsubscribe for all children subscription and remove them as well
+
+
+## Leg subscription management and event dispatching
+
+- each subscription has m_hasSharedLegParent, this is set on real subscription of a leg subs and all of its children
+- real subscriptions of leg subs are assigned to workers like usual
+- for each subscription, if it has added itself as dependent, need to reverse it when reloading or unsubscribing
+- a leg subscription should submit a unsub request for its real sub when deleted
+
+
+In subscription ctr/dtr add tracing logic to track subscription management to avoid memory leak
+
+Note: checkDependant is called on every publish, slow if a leg has many dependants, consider removing it

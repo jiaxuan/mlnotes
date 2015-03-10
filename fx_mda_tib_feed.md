@@ -129,6 +129,6 @@ For each RSF/PHP= from Reuters, fx_mda_tib_feed will send two ticks
 	     47001 RSF            PHP=                          1 USDPHP
 
 
-	=== [RfaCallback::onPrice] RSF/PHP=
-	* MDA: Ticking: RSF/PHP=  BID 44.97 ASK 44.98 for [ MarketInstrument: market=1 instrument='USDPHP' ]
-	* MDA: Ticking: RSF/PHP=  BID 44.97 ASK 44.98 for [ MarketInstrument: market=1 instrument='USDPH3' ]
+	2014-11-04 11:31:14.119898 INFO RFA: Ticking RSF/PHP= : Bid 44.960000 Ask 44.980000
+	2014-11-04 11:31:14.119936 INFO MDA: Ticking: RSF/PHP=  BID 44.96 ASK 44.98 for [ MarketInstrument: market=1 instrument='USDPHP' ]
+	2014-11-04 11:31:14.120006 INFO MDA: Ticking: RSF/PHP=  BID 44.96 ASK 44.98 for [ MarketInstrument: market=1 instrument='USDPH3' ]

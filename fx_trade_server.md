@@ -232,6 +232,7 @@ It provides the following services:
 - FXTradeSplitServerContractStub
 - FXTradeBulkContractStub
 
+Details:
 
 	contract FXTradeContract version 1.0 apiexposed
 
@@ -524,7 +525,7 @@ Profit limit:
 
 Rate tolerance:
 
-   std::string performRateToleranceCheckAgainstBidOffer(const TradeProperties<FXSpotForwardTrade>& properties,
+	std::string performRateToleranceCheckAgainstBidOffer(const TradeProperties<FXSpotForwardTrade>& properties,
                                                         LazyMarketPrice<FXSpotForwardTrade>& lazyMarketPrice,
                                                         const FXSpotForwardTrade& trade)
 

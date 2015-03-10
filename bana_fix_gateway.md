@@ -1,4 +1,4 @@
-###################################################################################
+<!-- ################################################################################### -->
 
 # Setup
 
@@ -71,7 +71,7 @@
 	FXGroupTradingLimits
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Initialization
 
@@ -229,7 +229,7 @@ These engine connections become active once the gateway becomes cluster master:
 		m_gatewayContract.start();
 		...
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Engine Connection
 
@@ -486,7 +486,7 @@ and incoming messages are handled as:
 	void BANASession::handleOrderRequest(const FXNewOrderSingle_ptr & message)
 		m_orderManager.handleNewOrderSingle(message);
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Position Tracker
 
@@ -556,7 +556,7 @@ If it is a failure, the following is called:
 
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Quote Manager
 
@@ -1289,7 +1289,7 @@ It uses tps client callback to receive quotes:
 What is the difference between stale and expired ?
 
 
-################################################################################
+<!-- ################################################################################### -->
 
 # Block
 
@@ -1368,7 +1368,7 @@ The actual work is done in:
 
 
 
-###################################################################################
+<!-- ################################################################################### -->
 # Quote Store
 
 ## FXQuoteStore
@@ -1412,7 +1412,7 @@ From `FXOutrightQuote` contract:
 	sourceTickId int64;		
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Order Manager
 
@@ -1816,7 +1816,7 @@ Notes:
 		m_session.sendMessage(message);
 		sendLifeCycleEventUpdateOnExecutionReport(request, message);
 
-##########################################################################
+<!-- ################################################################################### -->
 
 # Quote store manager
 
@@ -1886,7 +1886,7 @@ Notes:
 		clear staled quotes from quoteHistory // !!!
 	}
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Schedule Manager
 
@@ -1895,24 +1895,24 @@ Notes:
 		virtual void onDayRoll(DayRoll& dayroll, DayRollData&  newTradingDay) = 0;
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Option Manager
 
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Subscription
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Request Flow Management 
 
 ag 'RequestHandler::instance'
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # TPS Client
 
@@ -2006,7 +2006,7 @@ To trace quotes:
 
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Message Processing
 
@@ -2123,7 +2123,7 @@ The general pipeline in `EngineConnection::taskReadMessage` is:
 ## Allocation
 
 
-###################################################################################
+<!-- ################################################################################### -->
 
 # Issues
 
@@ -2141,7 +2141,7 @@ The general pipeline in `EngineConnection::taskReadMessage` is:
 
 
 
-####################################################################################
+<!-- ################################################################################### -->
 
 # Summary (Using outright as example)
 
@@ -2242,3 +2242,153 @@ There is a way to use an override value to short-circuit the above logic which i
 unused with the override value is set to -1. When set, both TTL1 and TTL2 are set to that value instead.
 
 removalDelay is from registry key `expired_quote_removal_delay` with a default value of 4000 ms
+
+### Update, the latest code has the following logic
+
+BANASessionQuoteManager::onQuote(FXOutrightQuote tpsQuote...)
+	int64 bfgwRcvdTime = apr_time_now();
+	// this sets quote stale time to tpsQuote->getOriginSysTime() + tpsQuote->getTimeToLive()
+	bfgw::Quote quote = new bfgw::TPSOutrightQuote(tpsQuote)
+	// BANASessionQuoteManager.hpp: static const int DEFAULT_TTL = -1;
+	handleQuote(quote, DEFAULT_TTL, bfgwRcvdTime); 
+
+BANASessionQuoteManager::handleQuote(quote, DEFAULT_TTL, bfgwRcvdTime ...)
+	subscription->handleQuote(quote, DEFAULT_TTL, bfgwRcvdTime ...)
+
+Subscription::handleQuote(quote, DEFAULT_TTL, bfgwRcvdTime ...)
+	handleQuoteHelper(quote, DEFAULT_TTL, bfgwRcvdTime ...)
+
+Subscription::handleQuoteHelper(quote, DEFAULT_TTL, bfgwRcvdTime ...)
+	int calculateTTL;
+	bool quoteAlreadyExp = checkIfQuoteExpAndCalcTTL(quote, DEFAULT_TTL, calculatedTTL);
+	...
+	quoteId = m_quoteStore->saveQuote(quote, bfgwRcvdTime, 0);
+	...
+
+bool Subscription::checkIfQuoteExpAndCalcTTL(quote, DEFAULT_TTL, &calculatedTTL)
+	if (throttleManagerUtils.ignoreQuoteTTL())
+		calculatedTTL = throttleManagerUtils.getValidUntilTime(session, DEFAULT_TTL);
+		return false;
+	else
+		diff = quote->getOriginSysTime() + quote->getTimeToLive() - now.usecs()
+		if diff <= 0
+			return true;
+		else
+			calculatedTTL = diff / 1000
+			return false
+
+SubscriptionQuoteStore::saveQuote(quote, bfgwRcvdTime ...)
+	now = apr_time_now()
+	checkAndStalePreviousQuote(now);
+	addQuoteToStore(quote ...)
+	pruneStaleQuotes(now)
+
+	// the latest quote has the default stale time of tpsQuote->getOriginSysTime() + tpsQuote->getTimeToLive()
+	// the previous quote has the stale time of now + STALE_QUOTE_TTL
+
+SubscriptionQuoteStore::checkAndStalePreviousQuote
+	staleTime = now + m_options.getStaleQuoteTtl() * Time::USECS_PER_MILLISECOND;
+	if (!m_quoteStore.empty())
+		if (m_quoteStore.front().second->getStaleTime() >= staleTime)
+			m_quoteStore.front().second->stale(staleTime)
+
+	// note this doesn't really stale the quote, it simply update its TTL
+
+
+So a quote's effective TTL is the minimum of
+
+	originSysTime + TimeToLive // set by source
+	t_next + STALE_QUOTE_TTL   // t_next: when the next quote is saved to quote store
+
+
+SubscriptionQuoteStore::pruneStaleQuotes
+	removalTime = now - RegistryHelper::getRegistryInteger64ProcOrEnv("", "expired_quote_removal_delay", 8000)
+	remove a quote if its staleTime < removalTime
+
+	// so a quote may stay in store longer than its stale time
+
+For a new order, SessionOrderManager will try to look up the quote in quote store
+
+* if the quote is not found, it is rejected with "quote is unknown"
+* if the quote is stale, it is rejected with "quote is stale"
+
+
+<!-- ################################################################################### -->
+
+# High Level View for Performance Improvement
+
+- Each connection to Camera is a EngineConnection
+- An EngineConnection has a thread for read and a thread for write
+
+## Incoming message flow (Quote request)
+
+EngineConnection reader thread (EngineConnection::taskReadMessage)
+
+- Call blocking call FixMessageSocket::pollMessage(...) to read a message
+- Call Session::receiveMessage(...) to process it
+- BANASession::handleMessageByType() may be sync or async depending on 
+  - /PROCESS/allow_async_request_handling (default false)
+  - /PROCESS/async_request_thread_pool_size (default 3)
+- BANASession::handleQuoteRequest() calls BANASessionQuoteManager::handleQuoteRequest(). Each session has its own m_quoteManager:BANASessionQuoteManager
+
+## Incoming message flow (New Order Single)
+
+EngineConnection reader thread (EngineConnection::taskReadMessage)
+
+- Call blocking call FixMessageSocket::pollMessage(...) to read a message
+- Call Session::receiveMessage(...) to process it
+- BANASession::handleMessageByType() may be sync or async depending on 
+  - /PROCESS/allow_async_request_handling (default false)
+  - /PROCESS/async_request_thread_pool_size (default 3)
+- BANASession::handleOrderRequest() calls SmartOrderManager::handleQuoteRequest() or BANASessionOrderManager::handleNewOrderSingle() Each session has its own m_smoManager:SmartOrderManager and m_orderManager:BANASessionOrderManager
+
+EngineConnection read thread or BANASession request handling thread pool thread:
+
+- BANASessionOrderManager::subscribeForQuotes()
+  - Call createFXQuoteRequest() to create the TPS quote request
+  - Create the subscription object, which may be
+     - a normal Subscription that uses TpsClient
+     - a SDSubscription that uses a SpiderDirectClient (TPS client is also used)
+     - a MassQuoteSubscription that uses a SpiderDirectClient (TPS client is also used)
+  - Call onSubscriptionStart(...) 
+     - m_subManager.addSubscription(subs) (this is a shared SubscriptionManager::instance())
+     - m_subscriptionMap.insert(pair(fixRequestId, subs))
+  - If RFS, call subscription->start(tpsReqestList), which in turn calls tpsClient->subscribe(...)
+
+
+
+## Outgoing message flow 
+
+Each BANASessionQuoteManager has its own m_tpsClient:TpsClient (fx/tpsclient3/TpsClient.cpp). The tps client
+implements FXOutrightListenerStub and FXOutrightProviderProxy through its m_outrightCallback:FXOutrightCallback
+instance.
+
+TcpRouter thread (how about combined process ?)
+
+- FXOutrightCallback::onQuote(...)
+- TpsClient::processQuote(...)
+- BANASessionQuoteManager::onQuote(...)
+- BANASessionQuoteManager::handleQuote(...)
+- Subscription::handleQuote(...)
+  - NOTE: this function holds subsMutexPtr
+  - check if should apply sales flagged RFQ
+  - call handleQuoteHelper
+- Subscription::handleQuoteHelper(...)
+  - if not quoted, check quote validity to start/stop first valid quote timer
+  - check if quote id less than last quote id
+  - check if quote expired
+  - if quote valid, m_quoteStore.saveQuote(...)
+  - sendConsolidatedQuote(...)
+    - BANASession::sendConsolidatedMessage(...)
+    - NOTE: some checking while holding subsMutexPtr
+  - Call m_quoteStore.cleanupStaleQuotes() through the destructor of m_quoteStore::getAutoQuoteStoreCleaner()
+
+EngineConnection writer thread (EngineConnection::taskWriteMessage)
+
+- Get all messages from m_sendQueue:ConsolidatingFixMessageQueue_ptr, this is done by using a blocking call
+  ConsolidatingFixMessageQueue::getAll(...)
+- Call FixOptionalTagsFilter::filter(...) on each message
+- Call FixMessageSocket::writeMessages(...) to batch send messages
+
+
+
