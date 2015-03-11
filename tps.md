@@ -1519,26 +1519,51 @@ Checking interval is set to 10ms:
 
 <!-- ################################################################################# -->
 
-# AXE Outright Subscription Graph
-
-	     InternalTPSTick
-	            |
-	initializeTick_computeNode
+# AXE Outright Subscription Graph for direct
 
 
+	                                                   InternalTPSTick
+	                                                          |
+	                                                          |
+	                                                          |
+	                      TPSGroupData                initializeTick                     TPSSpotSalesMarkupData
+	                            |                             |                                 |   |
+	                            |_____________________________|_________________________________|   |
+	                                                          |                                     |
+	 TPSAXEFastMarketData  TPSSpotTraderMarkupData  verifySalesSpreadData                           |
+	          |                       |                       |                                     |
+	          |_______________________|_______________________|                                     |
+	                                  |                                                             |
+	                        verifyAXEFastMarketData          TPSTradingLimitData                    |
+	                                  |                            | |                              |
+	                                  |____________________________| |                              |
+	                                                 |               |                              |
+	              TPSGroupTradeVolumeData     verifySpotLimit        |                              |
+	                         |                       |               |                              |
+	                         |_______________________|_______________|                              |
+	                                                 |                                              |
+	                                       applyGroupTradeVolume      SpotTickWithDepth             |
+	                                                 |                       |                      |
+	                                                 |_______________________|                      |
+	                                                            |                                   |
+	                                                   applyAXEInterpolation                        |
+	                                                            |                                   |
+	                                                            |                                   |
+	                                                            |                                   |
+	                                                    applyAXEFastMarket                          |
+	                                                            |                                   |
+	                                                            |                                   |
+	                                                            |                                   |
+	                                                   applySpotMidConstraint                       |
+	                                                            |                                   |
+	                                                            |___________________________________|
+	                                                                         |
+	                                                                applyAXESalesSpread      SpotIndicative
+	                                                                         |                      |
+	                                                                         |______________________|
+	                                                                                    |
+	                                                                            verifyPostCalculate
 
-
-
-
-
-
-	InternalTPSTick: InternalTPSTick, a dummy tick
-
-	initializeTick_computeNode: InternalTPSTick, InitializeTick, initialize tick
-
-
-
-SourceNode< TPSSpotSalesMarkupData* >::Ptr    m_spotSalesMarkup_sourceNode;
 
 
 
@@ -1601,3 +1626,24 @@ SourceNode< TPSSpotSalesMarkupData* >::Ptr    m_spotSalesMarkup_sourceNode;
 In subscription ctr/dtr add tracing logic to track subscription management to avoid memory leak
 
 Note: checkDependant is called on every publish, slow if a leg has many dependants, consider removing it
+
+
+- A shared leg is kept as a shared pointer in various dependants. when it ticks, it publishes
+  a child event to its dependants which uses tryGetSubscriptionOutput to get the data. This is clearly
+  very racy:
+  
+  - the update of leg and its publishing of events is asyn to its dependants 
+  - the handling of these event in dependants are non-deterministic, multiple events may be handled in one
+    or more concistentCalculate, the point of tryGetSubscriptionOut is not in sync with the original child event
+  - the call of clone in dependants again is async to the leg
+
+- A tick from a shared leg may lead to all of its dependant ticking and cloning. This may lead to
+  multiple cloning of the shared leg.
+
+Both issues can be addressed by publishing the audit (clone, which is created anyway before publishing)
+of the leg as part of child event. The dependants would then use this for their cloning as well. 
+
+- The hanlding of children events contains many if conditions to many event names against children subscriptions,
+this can be optimized.
+- There's the danger of of a client exits without properly unsubscribing its subscriptions. This can be
+  easily handled for TCP clients. For TIBRV clients, a status checking mechanism is required.
