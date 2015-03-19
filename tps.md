@@ -1647,3 +1647,124 @@ of the leg as part of child event. The dependants would then use this for their 
 this can be optimized.
 - There's the danger of of a client exits without properly unsubscribing its subscriptions. This can be
   easily handled for TCP clients. For TIBRV clients, a status checking mechanism is required.
+
+
+
+# Performance Improvment
+
+Use a single consolidateQuote(ctx), for MQ, check if quotestack is empty, if yes,
+update all, otherwise, update a single volume
+
+## Slow Logging
+
+
+	// AXEBaseSubscription.cpp 
+
+	bool AXEBaseSubscription::processBubbleNetResult(OutrightSubscriptionContext& ctx, ...)
+
+	const InternalTPSTick& bnOutput = *lastTickedComputeNode->doGet(*m_bnContexts[ctxId]);
+	GLDBUG(GRP_MAIN, "output trader %s sales ...")
+
+
+	// OutrightSubscription_StateTools.cpp
+
+	void OutrightSubscription::setState(OutrightSubscriptionContext& ctx, const InternalState newState)
+
+	GLDBUG(GRP_MAIN, "Outright state update to %s from %s ...")
+
+
+## BubbleNet Improvement
+
+When flushTicks for FXSpotTickWithDepth, the following is slow:
+- applyAXEInterpolation_computeNode
+- applyAXEFastMarket_computeNode
+- applyAXESalesSpread_computeNode
+
+	Total 58:
+	 FXSpotTickWithDepth(0) 
+	 applyAXEInterpolation_computeNode(13) 
+	 applyAXEFastMarket_computeNode(17) 
+	 applySpotMidConstraint_computeNode(4) 
+	 applyAXESalesSpread_computeNode(17) 
+	 verifyInvertedPrice_computeNode(2) 
+	 verifyPostCalculate_computeNode(1)
+
+	Total 56:
+	 FXSpotTickWithDepth(0) 
+	 applyAXEInterpolation_computeNode(14) 
+	 applyAXEFastMarket_computeNode(16) 
+	 applySpotMidConstraint_computeNode(5) 
+	 applyAXESalesSpread_computeNode(16) 
+	 verifyInvertedPrice_computeNode(2) 
+	 verifyPostCalculate_computeNode(1)
+
+	Total 60:
+	 FXSpotTickWithDepth(0) 
+	 applyAXEInterpolation_computeNode(14) 
+	 applyAXEFastMarket_computeNode(18) 
+	 applySpotMidConstraint_computeNode(6) 
+	 applyAXESalesSpread_computeNode(17) 
+	 verifyInvertedPrice_computeNode(2) 
+	 verifyPostCalculate_computeNode(1)
+
+	Total 81:
+	 FXSpotTickWithDepth(0) 
+	 applyAXEInterpolation_computeNode(26) 
+	 applyAXEFastMarket_computeNode(19) 
+	 applySpotMidConstraint_computeNode(6) 
+	 applyAXESalesSpread_computeNode(22) 
+	 verifyInvertedPrice_computeNode(2) 
+	 verifyPostCalculate_computeNode(2)
+
+How to get rid of the extensive copying of InternalTPSTick in bubblenet nodes
+
+	const InternalTPSTick::CPtr ApplyAXEInterpolation::update(ApplyAXEInterpolationContext& ctx,
+	                                                          const InternalTPSTick::CPtr & tick, 
+	                                                          const FXSpotTickWithDepth::Ptr& spotTick) const {
+		on_start2(ApplyAXEInterpolation);
+		ctx.tickStorage = *tick;	// copy
+		InternalTPSTick::Ptr retTick = &*ctx.tickStorage;
+
+	
+	// one option is this:
+	1. Add version number to InternalTPSTick
+	2. In node context, record version of the dependent tick
+	3. for the above code, do this:
+
+	const InternalTPSTick::CPtr ApplyAXEInterpolation::update(ApplyAXEInterpolationContext& ctx,
+	                                                          const InternalTPSTick::CPtr & tick, 
+	                                                          const FXSpotTickWithDepth::Ptr& spotTick) const {
+		// save current local tick version
+		uint32 localTickVersion = ctx.tickStorage->version;
+		// check if dependant tick has changed
+		if (ctx.dependentTickVersion != tick->version) {
+			ctx.tickStorage = *tick;
+			ctx.dependentTickVesion = tick->version;
+		}
+		// always update local tick version
+		ctx.tickStorage.version = localTickVersion + 1;
+
+		InternalTPSTick::Ptr retTick = &*ctx.tickStorage;
+		....
+	}
+
+
+## Audit Improvement
+
+For audit cloning,
+
+	resetAudit();	// this is even slower than clone
+	m_audit();		// also quite slow
+
+
+Consider replacing Subscription with SubscriptionAudit:
+- it is pool managed
+- it should only copy data required for audit
+- it uses data versioning on Subscription and previous SubscriptionAudit to save memory
+
+
+## SpotTick Improvement
+
+Use pool for SpotTick events
+
+
