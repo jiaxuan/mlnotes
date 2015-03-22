@@ -1767,4 +1767,24 @@ Consider replacing Subscription with SubscriptionAudit:
 
 Use pool for SpotTick events
 
+## Fundations
+
+### Object pool
+- check TCMalloc doc
+- check folly IndexedMemPool, optimized it for tcmalloc
+- bench
+
+### Logging
+
+Replace LDBUG, GLDBUG with wrappers that evaluate arguments only when actually logging
+
+### String builder
+
+The default string builder expands memory on demand, wasteful for audit. can use small buffers
+to hold data.
+
+Check Decimal.toString() performance.
+
+addReasoning(...) with Decimal.toString() seems to be a major bottleneck for bubblenet
+
 
