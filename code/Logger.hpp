@@ -1,17 +1,18 @@
 #ifndef __COMMON_LOGGING_LOGGER_HPP_
 #define __COMMON_LOGGING_LOGGER_HPP_
 
-#include <tr1/unordered_map>
-#include <common/common.hpp>
-#include <common/concurrent/Mutex.hpp>
-#include <common/concurrent/atomic32.hpp>
-#include <common/concurrent/Thread.hpp>
-#include <common/concurrent/Condition.hpp>
-#include <common/container/CircularBuffer.hpp>
-#include <common/util/Time.hpp>
+#include <unordered_map>
+#include "common.hpp"
+#include "Mutex.hpp"
+#include "atomic32.hpp"
+#include "Thread.hpp"
+#include "Condition.hpp"
+#include "CircularBuffer.hpp"
+// #include <common/util/Time.hpp>
 #include <deque>
 #include <map>
 #include <stdio.h>
+#include <boost/shared_ptr.hpp>
 
 /** ----------------------------------------------------------------------------------
  * Define LOGGING_GROUP to override the default group name
@@ -27,8 +28,8 @@
  */
 #define GLOG(group, level, msg, ...)     														\
     do {    																					\
-		static ml::common::logging::Logger & logger = ml::common::logging::Logger::instance();	\
-		static ml::common::logging::LogSettings & settings = 									\
+		static Logger & logger = Logger::instance();	\
+		static LogSettings & settings = 									\
 				logger.createSettings(level, group, __LOCATION__, __FUNCTION_SIGNATURE__);      \
 		if( settings.isLoggable() ) 															\
 			logger.write( settings, msg , ##__VA_ARGS__ );                                      \
@@ -36,7 +37,7 @@
 
 #define IS_GLOGGABLE(group, level) ([]() -> bool \
 	{ \
-		static auto & settings = mlc::logging::Logger::instance().createSettings(level, group, __LOCATION__, __FUNCTION_SIGNATURE__); \
+		static auto & settings = Logger::instance().createSettings(level, group, __LOCATION__, __FUNCTION_SIGNATURE__); \
 		return settings.isLoggable(); \
 	}())
 
@@ -47,7 +48,6 @@
  */
 #define SLOG(level, group, msg)                                                                                   \
     do {                                                                                                          \
-        using namespace ml::common::logging;                                                                      \
         static Logger &log = Logger::instance();                                                                  \
         static LogSettings &settings = log.createSettings(level, group, __LOCATION__, __FUNCTION_SIGNATURE__);    \
         if(settings.isLoggable())                                                                                 \
@@ -57,12 +57,12 @@
 /**
  * Log at the implicit level, using specified logging group
  */
-#define GLTRCE(group, msg, ...) 	GLOG( group, ml::common::logging::LL_TRCE, msg , ##__VA_ARGS__ )
-#define GLDBUG(group, msg, ...) 	GLOG( group, ml::common::logging::LL_DBUG, msg , ##__VA_ARGS__ )
-#define GLINFO(group, msg, ...)  	GLOG( group, ml::common::logging::LL_INFO, msg , ##__VA_ARGS__ )
-#define GLMETA(group, msg, ...)  	GLOG( group, ml::common::logging::LL_META, msg , ##__VA_ARGS__ )
-#define GLWARN(group, msg, ...)  	GLOG( group, ml::common::logging::LL_WARN, msg , ##__VA_ARGS__ )
-#define GLCRIT(group, msg, ...)  	GLOG( group, ml::common::logging::LL_CRIT, msg , ##__VA_ARGS__ )
+#define GLTRCE(group, msg, ...) 	GLOG( group, LL_TRCE, msg , ##__VA_ARGS__ )
+#define GLDBUG(group, msg, ...) 	GLOG( group, LL_DBUG, msg , ##__VA_ARGS__ )
+#define GLINFO(group, msg, ...)  	GLOG( group, LL_INFO, msg , ##__VA_ARGS__ )
+#define GLMETA(group, msg, ...)  	GLOG( group, LL_META, msg , ##__VA_ARGS__ )
+#define GLWARN(group, msg, ...)  	GLOG( group, LL_WARN, msg , ##__VA_ARGS__ )
+#define GLCRIT(group, msg, ...)  	GLOG( group, LL_CRIT, msg , ##__VA_ARGS__ )
 
 /**
  * Log at the implicit level, using DEFAULT_LOGGING_GROUP
@@ -78,15 +78,6 @@
 // ----------------------------------------------------------------------------------- 
 // ml::common::logging
 // ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-
-namespace application {
-	class Application;
-}
-	
-namespace logging {
 
 /** ----------------------------------------------------------------------------------
  * The logging levels available
@@ -127,18 +118,18 @@ private:
 				const char *grp, 
 				const char *loc, 
 				const char *sig,
-				concurrent::atomic32 &glRef);
+				atomic32 &glRef);
 
 	const std::string group;
 	std::string header;
 	const Level localLevel;
-	concurrent::atomic32 &groupLevelRef;
+	atomic32 &groupLevelRef;
 };
 
 /** ----------------------------------------------------------------------------------
  * The main loggerImpl class
  */
-class Logger : private ml::common::concurrent::Thread
+class Logger : private Thread
 {
 public:
 	typedef std::map<std::string, std::string> StringMap;
@@ -180,7 +171,7 @@ private:
 	 */
 	bool onProcess();
 	
-	friend class mlc::application::Application;
+	// friend class mlc::application::Application;
 
 	void setProgramName(const std::string & progName);
 			
@@ -192,14 +183,9 @@ private:
 	
 private:
 	
-	typedef std::deque< boost::shared_ptr<LogSettings> >
-		settings_deque;
-		
-	typedef std::tr1::unordered_map< std::string, ml::common::concurrent::atomic32 >	
-		settings_map;
-	
-	typedef container::CircularBuffer< char >
-		byte_buffer;
+	typedef std::deque< boost::shared_ptr<LogSettings> > settings_deque;
+	typedef std::unordered_map< std::string, atomic32 >	settings_map;
+	typedef CircularBuffer< char > byte_buffer;
 	
 	enum FileType
 	{
@@ -213,15 +199,11 @@ private:
 	settings_deque					m_settings;
 	settings_map 					m_levels;
 	byte_buffer						m_buffer;
-	concurrent::Mutex				m_mutex;
-	concurrent::Condition			m_cond;
+	Mutex				m_mutex;
+	Condition			m_cond;
 	std::map<std::string, FileInfo> m_files;
 	std::string						m_programName;
 	uint32							m_counter;
 };
-
-}; // logging
-}; // common
-}; // ml
 
 #endif // __COMMON_LOGGING_LOGGER_HPP_

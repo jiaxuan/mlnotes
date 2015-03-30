@@ -10,14 +10,6 @@
 #include <atomic>
 #include <list>
 
-// ----------------------------------------------------------------------------------- 
-// ml::common::concurrent
-// ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace concurrent {
-
 /** ----------------------------------------------------------------------------------
  * Function-based thread pool
  * 
@@ -109,8 +101,5 @@ typedef ThreadPoolT < > ThreadPool;
 
 #include "ThreadPool.cpp"
 
-}; // concurrent
-}; // common
-}; // ml
  
 #endif //__COMMON_CONCURRENT_THREADPOOL_HPP__

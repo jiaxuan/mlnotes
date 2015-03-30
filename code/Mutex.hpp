@@ -2,17 +2,13 @@
 #ifndef __COMMON_CONCURRENT_MUTEX_HPP__
 #define __COMMON_CONCURRENT_MUTEX_HPP__
 
-#include <common/common.hpp>
-#include <common/concurrent/ScopedLock.hpp>
+#include "common.hpp"
+#include "ScopedLock.hpp"
 #include <pthread.h>
 
 // ----------------------------------------------------------------------------------- 
 // ml::common::concurrent
 // ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace concurrent {
 
 /** ----------------------------------------------------------------------------------
  * Mutex class. 
@@ -61,9 +57,5 @@ private:
 	pthread_mutex_t m_mutex;
 	Type m_type;
 };
-		
-}; // concurrent
-}; // common
-}; // ml
 
 #endif //__COMMON_CONCURRENT_MUTEX_HPP__

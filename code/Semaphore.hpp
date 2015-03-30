@@ -4,10 +4,6 @@
 #include <boost/utility.hpp>
 #include <memory>
 
-namespace ml {
-namespace common {
-namespace concurrent {
-
 class Semaphore : boost::noncopyable {
     class Impl;
 public:
@@ -20,9 +16,5 @@ public:
 private:
     std::auto_ptr<Impl> pimpl;
 };
-
-}
-}
-}
 
 #endif /*SEMAPHORE_HEADER_GUARD*/

@@ -1,10 +1,7 @@
-
-#include <common/concurrent/Thread.hpp>
-#include <common/exception/Exception.hpp>
-#include <common/logging/Logger.hpp>
-#include <common/diagnostics/StackTrace.hpp>
-
-using namespace ml::common::concurrent;
+#include "Thread.hpp"
+// #include "common/exception/Exception.hpp"
+#include "Logger.hpp"
+// #include "common/diagnostics/StackTrace.hpp"
 
 // ----------------------------------------------------------------------------------- 
 // ml::common::concurrent::Thread implementation
@@ -20,7 +17,7 @@ Thread::Thread(const char * desc) :
 	m_id(0),
 	m_state(TS_READY)
 {
-    m_createStack = ml::common::diagnostics::StackTrace().toString();
+    // m_createStack = ml::common::diagnostics::StackTrace().toString();
 }
 
 /** ----------------------------------------------------------------------------------
@@ -29,10 +26,10 @@ Thread::~Thread()
 {
 	if( m_state != TS_READY )
 	{
-		LWARN("Thread '%s' tearing down without having been stopped & joined.\n%s", 
-			  m_desc.c_str(),
-			  mlc::diagnostics::StackTrace().toString().c_str()
-			  );
+		// LWARN("Thread '%s' tearing down without having been stopped & joined.\n%s", 
+		// 	  m_desc.c_str(),
+		// 	  mlc::diagnostics::StackTrace().toString().c_str()
+		// 	  );
 			  
 		stop();
 		join();
@@ -50,8 +47,8 @@ Thread::Identifier Thread::self()
  */
 Thread::Identifier Thread::id() const
 {
-	if( 0 == (state() & (TS_RUNNING | TS_STOPPING)) )
-		LWARN("Thread::id() called for thread '%s' which is not running", m_desc.c_str());
+	// if( 0 == (state() & (TS_RUNNING | TS_STOPPING)) )
+	// 	LWARN("Thread::id() called for thread '%s' which is not running", m_desc.c_str());
 		
 	return m_id;
 }
@@ -61,8 +58,9 @@ Thread::Identifier Thread::id() const
 void Thread::start()
 {
     if( state() != TS_READY )
-		THROW(ml::common::exception::InvalidStateException, m_desc +
-              " : Attempting to start() a thread that has not been fully stopped");
+        throw("Attempting to start() a thread that has not been fully stopped");
+		// THROW(ml::common::exception::InvalidStateException, m_desc +
+        //       " : Attempting to start() a thread that has not been fully stopped");
 	
 	// Set this before starting the thread to avoid a race condition where the onThreadStart can
 	// be called before the state is set to TS_STARTING
@@ -72,9 +70,10 @@ void Thread::start()
 	if( 0 != (result = pthread_create(&m_id, NULL, Thread::run, this)) )
 	{
 		m_state = TS_READY;
-		THROW(ml::common::exception::RuntimeException, m_desc + 
-              " : An error occurred when attempting to start the underlying thread: " +
-              strerror(errno), result);
+        throw(" An error occurred when attempting to start the underlying thread");
+		// THROW(ml::common::exception::RuntimeException, m_desc + 
+        //       " : An error occurred when attempting to start the underlying thread: " +
+        //       strerror(errno), result);
 	}
 }
 
@@ -95,10 +94,10 @@ void Thread::join()
 	{
 		if( 0 != pthread_join( m_id, NULL ) )
 		{
-			LWARN("Join failed on thread '%s'.\n%s", 
-				  m_desc.c_str(),
-				  mlc::diagnostics::StackTrace().toString().c_str()
-				  );
+			// LWARN("Join failed on thread '%s'.\n%s", 
+			// 	  m_desc.c_str(),
+			// 	  mlc::diagnostics::StackTrace().toString().c_str()
+			// 	  );
 		}
 		else
 		{
@@ -127,7 +126,7 @@ const std::string & Thread::desc() const
 void * Thread::run(void *pvThread)
 {
 	Thread &thread = * static_cast<Thread *>(pvThread);
-	LMETA("Thread Created By %s" , thread.m_createStack.c_str() );
+	// LMETA("Thread Created By %s" , thread.m_createStack.c_str() );
 	try 
 	{
 		thread.onThreadStart();

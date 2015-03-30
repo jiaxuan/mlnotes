@@ -2,19 +2,11 @@
 #define __COMMON_TEXT_FORMAT_HPP__
 
 #include <cstdarg>
-#include <common/common.hpp>
-#include <common/math/Decimal.hpp>
-#include <common/text/StringArray.hpp>
+#include "common.hpp"
+#include "DecimalDecNumber.hpp"
 #include <string>
 #include <cstdarg>
-
-// ----------------------------------------------------------------------------------- 
-// ml::common::text
-// ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace text {
+#include <boost/noncopyable.hpp>
 
 /** ----------------------------------------------------------------------------------
  */
@@ -129,7 +121,7 @@ public:
      */
     static std::string toStringV(const char *format, va_list ap);
 
-	static std::string StringArrayToString(const ml::common::text::StringArray &v);
+	// static std::string StringArrayToString(const ml::common::text::StringArray &v);
 
 	/**
 	 * Format raw bytes as a hex string
@@ -160,15 +152,11 @@ public:
 	 * @return the formatted string
 	 */
 	static std::string toCommaFormatted(const std::string& value);
-	static std::string toCommaFormatted(const ml::common::math::Decimal& value);
+	static std::string toCommaFormatted(const DecimalDecNumber& value);
     
 private:
 	Format();
 	~Format();
 };
-
-}; // text
-}; // common
-}; // ml
 
 #endif // __COMMON_TEXT_FORMAT_HPP__

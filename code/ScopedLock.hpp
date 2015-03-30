@@ -2,7 +2,8 @@
 #ifndef __COMMON_CONCURRENT_SCOPEDLOCK_HPP__
 #define __COMMON_CONCURRENT_SCOPEDLOCK_HPP__
 
-#include <common/common.hpp>
+#include "common.hpp"
+#include <boost/noncopyable.hpp>
 
 /** ----------------------------------------------------------------------------------
  * Syntactic sugar macro providing a Java style "synchronized" block.
@@ -45,7 +46,7 @@
  */
 
 #define synchronized(mtx) 													\
-	for( ml::common::concurrent::ScopedLock<ml::common::concurrent::Mutex> 	\
+	for( ScopedLock<Mutex> 	                                                \
 		 	UNIQUE_NAME(lok)(mtx); 											\
 		 	UNIQUE_NAME(lok); 												\
 		 	UNIQUE_NAME(lok).unlock() ) 
@@ -68,13 +69,13 @@
  */
 
 #define read_synchronized(mtx) 															\
-	for( ml::common::concurrent::ScopedReadLock<ml::common::concurrent::ReadWriteMutex> \
+	for( ScopedReadLock<ReadWriteMutex>                                                 \
 		 	UNIQUE_NAME(lok)(mtx); 														\
 		 	UNIQUE_NAME(lok); 															\
 		 	UNIQUE_NAME(lok).unlock() ) 
 
 #define write_synchronized(mtx) 														\
-	for( ml::common::concurrent::ScopedWriteLock<ml::common::concurrent::ReadWriteMutex>\
+	for( ScopedWriteLock<ReadWriteMutex>                                                \
 		 	UNIQUE_NAME(lok)(mtx); 														\
 		 	UNIQUE_NAME(lok); 															\
 		 	UNIQUE_NAME(lok).unlock() ) 
@@ -82,10 +83,6 @@
 // ----------------------------------------------------------------------------------- 
 // ml::common::concurrent
 // ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace concurrent {
 
 /** ----------------------------------------------------------------------------------
  * Simple auto-lock / auto-unlock class that performs a lock on the Lockable argument
@@ -165,9 +162,5 @@ struct ScopedWriteLock : public ScopedLock<Lockable>
 	{
 	}
 };
-
-}; // concurrent
-}; // common
-}; // ml
 
 #endif // __COMMON_CONCURRENT_SCOPEDLOCK_HPP__

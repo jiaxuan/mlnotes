@@ -1,18 +1,15 @@
 #ifndef __COMMON_TEXT_STRINGBUILDER_HPP__
 #define __COMMON_TEXT_STRINGBUILDER_HPP__
 
-#include <common/common.hpp>
-#include <common/math/Decimal.hpp>
-#include <common/math/DecimalDecNumber.hpp>
-#include <string>
+#include "common.hpp"
+#include "DecimalDecNumber.hpp"
+#include <cstring>
 #include <memory>
 
 #include <boost/shared_array.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/scoped_array.hpp>
 
-namespace ml { 
-namespace common { 
-namespace text {
-	
 /**
  * Use this class to build up a string significantly more quickly than ostringstream. 
  */
@@ -45,8 +42,8 @@ public:
 	StringBuilder & operator<<(const uint32);
 	StringBuilder & operator<<(const int64);
 	StringBuilder & operator<<(const uint64);
-	StringBuilder & operator<<(const mlc::math::DecimalMPFR &);
-	StringBuilder & operator<<(const mlc::math::DecimalDecNumber &);
+	// StringBuilder & operator<<(const mlc::math::DecimalMPFR &);
+	StringBuilder & operator<<(const DecimalDecNumber &);
 	StringBuilder & operator<<(const float);
 	StringBuilder & operator<<(const double);
 	StringBuilder & operator<<(const char *);
@@ -63,9 +60,5 @@ private:
 	boost::scoped_array<char> m_buffer;
 	uint32 m_insertion_pos;
 };
-
-}; // text
-}; // common
-}; // ml
 
 #endif // __COMMON_TEXT_STRINGBUILDER_HPP__

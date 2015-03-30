@@ -1,12 +1,13 @@
 
-#include <common/logging/Logger.hpp>
-#include <common/exception/Exception.hpp>
-#include <common/text/Format.hpp>
-#include <common/util/Path.hpp>
-#include <common/application/Application.hpp>
-#include <common/registry/Registry.hpp>
-#include <common/RegistryVariables.hpp>
-#include <common/concurrent/gettid.hpp>
+#include "Logger.hpp"
+// #include <common/exception/Exception.hpp>
+#include "Format.hpp"
+// #include "common/util/Path.hpp"
+// #include "common/application/Application.hpp"
+// #include "common/registry/Registry.hpp"
+// #include "common/RegistryVariables.hpp"
+#include "gettid.hpp"
+#include "Time.hpp"
 
 #include <string.h>
 #include <stdio.h>
@@ -17,13 +18,6 @@
 #include <syslog.h>
 #include <linux/unistd.h>
 
-using namespace ml::common;
-using namespace ml::common::application;
-using namespace ml::common::logging;
-using namespace ml::common::util;
-using namespace ml::common::registry;
-using namespace ml::common::text;
-
 // ----------------------------------------------------------------------------------- 
 // ml::common::logging::Logger implementation
 // ----------------------------------------------------------------------------------- 
@@ -31,9 +25,9 @@ using namespace ml::common::text;
 namespace {
 
 struct MessageHeader {
-	util::Time now;
+	Time now;
 	uint32 size;
-    mlc::concurrent::Thread::Identifier tid;
+    Thread::Identifier tid;
     pid_t thread_pid;
 	const LogSettings *ps;
 };
@@ -95,57 +89,63 @@ bool linkRemoved(std::string &name, const uint32 counter)
 	}
 }
 
-RegKey & getEnvironmentKey()
-{
-	return Registry::instance().key(ENVIRONMENT_LOGGING_KEY, true);
-}
-
-RegKey & getEnvironmentGroupKey(const std::string &group)
-{
-	return getEnvironmentKey().key(group, true);
-}
-
-RegKey & getProcessKey()
-{
-	return Registry::instance().key(PROCESS_LOGGING_KEY, true);
-}
-
-RegKey & getProcessGroupKey(const std::string &group)
-{
-	return getProcessKey().key(group, true);
-}
+// RegKey & getEnvironmentKey()
+// {
+// 	return Registry::instance().key(ENVIRONMENT_LOGGING_KEY, true);
+// }
+//
+// RegKey & getEnvironmentGroupKey(const std::string &group)
+// {
+// 	return getEnvironmentKey().key(group, true);
+// }
+//
+// RegKey & getProcessKey()
+// {
+// 	return Registry::instance().key(PROCESS_LOGGING_KEY, true);
+// }
+//
+// RegKey & getProcessGroupKey(const std::string &group)
+// {
+// 	return getProcessKey().key(group, true);
+// }
 
 bool getDefaultSyslogEnabled()
 {
-	return Format::stringToBool(getProcessKey().value("syslog", getEnvironmentKey().value("syslog", "false")).c_str());
+	return false;
+	// return Format::stringToBool(getProcessKey().value("syslog", getEnvironmentKey().value("syslog", "false")).c_str());
 }
 
 std::string getDefaultLevel()
 {
-	return getProcessKey().value("level", getEnvironmentKey().value("level", LEVEL_STRINGS[LL_DEFAULT]));
+
+	// return getProcessKey().value("level", getEnvironmentKey().value("level", LEVEL_STRINGS[LL_DEFAULT]));
+	return LEVEL_STRINGS[LL_DEFAULT];
 }
 
 std::string getDefaultLocation()
 {
-	return getProcessKey().value("location", getEnvironmentKey().value("location", "<stdout>"));
+	return "<stdout>";
+	// return getProcessKey().value("location", getEnvironmentKey().value("location", "<stdout>"));
 }
 
 std::string getGroupLevel(const std::string &grp)
 {
-	return getProcessGroupKey(grp).value("level",
-				getEnvironmentGroupKey(grp).value("level", 
-					getDefaultLevel()
-					)
-				);
+	return getDefaultLevel();
+	// return getProcessGroupKey(grp).value("level",
+	// 			getEnvironmentGroupKey(grp).value("level", 
+	// 				getDefaultLevel()
+	// 				)
+	// 			);
 }
 
 std::string getGroupLocation(const std::string &grp)
 {
-	return getProcessGroupKey(grp).value("location",
-				getEnvironmentGroupKey(grp).value("location", 
-					getDefaultLocation()
-					)
-				);
+	return getDefaultLocation();
+	// return getProcessGroupKey(grp).value("location",
+	// 			getEnvironmentGroupKey(grp).value("location", 
+	// 				getDefaultLocation()
+	// 				)
+	// 			);
 }
 
 }; // <internal> namespace
@@ -186,15 +186,17 @@ struct Logger::FileInfo
  */
 Logger & Logger::instance()
 {
-	return mlc::application::Application::instance().logger();
+	static Logger logger;
+	return logger;
+	// return mlc::application::Application::instance().logger();
 }
 
 /** ----------------------------------------------------------------------------------
  */
 Logger::Logger() : 
 	m_buffer( MAX_BUFFER_SIZE ),
-	m_mutex(concurrent::Mutex::MT_Unchecked),
-	m_programName( mlc::util::Path::baseName( mlc::util::Path::currentProcessPath().c_str() ) ),
+	m_mutex(Mutex::MT_Unchecked),
+	m_programName("hello"),
 	m_counter(0)
 {
 	// Note: we rely on the Application object to call Thread::start()
@@ -234,10 +236,10 @@ bool Logger::testGroupLevel(Level lev, const std::string &group)
 	
 	synchronized(m_mutex) 
 	{
-		concurrent::atomic32 & glRef = m_levels.insert( 
+		atomic32 & glRef = m_levels.insert( 
 											settings_map::value_type(
 														group, 
-														concurrent::atomic32(LL_DEFAULT)
+														atomic32(LL_DEFAULT)
 													) 
 											).first->second;
 		flag = lev >= glRef;
@@ -273,8 +275,8 @@ void Logger::write(const LogSettings &settings, const char *format, ...)
 
 	mh->ps 	= &settings;
 	mh->size = vsnprintf(logbuf + sizeof(MessageHeader), LOGMSG_SIZE, format, ap);
-	mh->tid = mlc::concurrent::Thread::self();
-	mh->thread_pid = concurrent::gettid();
+	mh->tid = Thread::self();
+	mh->thread_pid = gettid();
 	if( uint32(mh->size) >= LOGMSG_SIZE )
 	{
 		// Allocate enough to store the full data
@@ -289,7 +291,7 @@ void Logger::write(const LogSettings &settings, const char *format, ...)
 
 	va_end(ap);
 
-	concurrent::Mutex::scoped_lock autolock(m_mutex);
+	Mutex::scoped_lock autolock(m_mutex);
 	int32 result = m_buffer.write(logbuf, sizeof(MessageHeader) + mh->size);
 	autolock.unlock();
 
@@ -321,11 +323,11 @@ void Logger::write(const LogSettings &settings, const std::string & message )
 	
 	mh.ps 	= &settings;
 	mh.size = message.size();
-    mh.tid = mlc::concurrent::Thread::self();
-    mh.thread_pid = concurrent::gettid();
+    mh.tid = Thread::self();
+    mh.thread_pid = gettid();
 
 	int32 result;
-	concurrent::Mutex::scoped_lock autolock(m_mutex);
+	Mutex::scoped_lock autolock(m_mutex);
 	if ( m_buffer.size() + mh.size + sizeof(MessageHeader) > m_buffer.capacity() )
 	{
 		result = byte_buffer::E_NOSPACE;
@@ -411,7 +413,7 @@ void Logger::flush()
 
 	for(;;)
 	{
-		concurrent::Mutex::scoped_lock autolock(m_mutex);
+		Mutex::scoped_lock autolock(m_mutex);
 		
 		if( byte_buffer::E_NODATA == m_buffer.read(reinterpret_cast<char *>(&mh), sizeof(MessageHeader)) )
 			break;
@@ -547,7 +549,7 @@ void Logger::flush()
 
 			memset(heap_logbuf.get(), '\0', mh.size+1);
 			
-			concurrent::Mutex::scoped_lock autolock(m_mutex);
+			Mutex::scoped_lock autolock(m_mutex);
 
 			if( byte_buffer::E_NODATA == m_buffer.read(heap_logbuf.get(), mh.size) )
 				break;
@@ -573,15 +575,16 @@ void Logger::flush()
 LogSettings & Logger::createSettings(const Level level, const char *grp, const char *loc, const char *sig)
 {
 	if( grp == NULL || loc == NULL || sig == NULL )
-		THROW(exception::InvalidArgumentException, "NULL string argument detected");
+		// THROW(exception::InvalidArgumentException, "NULL string argument detected");
+		throw("NULL string argument detected");
 
 	Level defaultLevel = stringToLevel( getGroupLevel(grp).c_str() );
 	
-	concurrent::Mutex::scoped_lock autolock(m_mutex);
-	concurrent::atomic32 & glRef = m_levels.insert( 
+	Mutex::scoped_lock autolock(m_mutex);
+	atomic32 & glRef = m_levels.insert( 
 										settings_map::value_type(
 													grp, 
-													concurrent::atomic32(
+													atomic32(
 															defaultLevel
 															)
 												) 
@@ -607,7 +610,7 @@ void Logger::getAllGroups(StringMap & groups) const
 
 /** ----------------------------------------------------------------------------------
  */
-LogSettings::LogSettings(const Level level, const char *grp, const char *loc, const char *sig, concurrent::atomic32 &glRef) :
+LogSettings::LogSettings(const Level level, const char *grp, const char *loc, const char *sig, atomic32 &glRef) :
 				group(grp),
 				localLevel(level),
 				groupLevelRef(glRef)
@@ -615,32 +618,36 @@ LogSettings::LogSettings(const Level level, const char *grp, const char *loc, co
 	header = Format::toString(
 					"%4s %s {{%s}} :",
 					levelToString(localLevel),
-					Path::baseName(loc).c_str(),
+					// Path::baseName(loc).c_str(),
+					"path",
 					sig
 				);
 }
 
 /** ----------------------------------------------------------------------------------
  */
-const char * logging::levelToString(Level level)
+const char * levelToString(Level level)
 {	
 	if( level >= LEVEL_COUNT )
-		THROW(exception::InvalidArgumentException, "Unknown log level");
+		// THROW(exception::InvalidArgumentException, "Unknown log level");
+		throw("Unknown log level");
 
 	return LEVEL_STRINGS[level];
 }
 
 /** ----------------------------------------------------------------------------------
  */
-Level logging::stringToLevel(const char *str)
+Level stringToLevel(const char *str)
 {
 	if( NULL == str )
-		THROW(exception::InvalidArgumentException, "NULL log level string");
+		// THROW(exception::InvalidArgumentException, "NULL log level string");
+		throw("NULL log level string");
 
 	for(byte i=0; i<LEVEL_COUNT; ++i)
 		if( 0 == strcasecmp(str, LEVEL_STRINGS[i]) )
 			return Level(i);
 
-	THROW(exception::InvalidArgumentException, "Invalid log level string (" + std::string(str) + ")");
+	// THROW(exception::InvalidArgumentException, "Invalid log level string (" + std::string(str) + ")");
+	throw("Invalid log level string (");
 }
 

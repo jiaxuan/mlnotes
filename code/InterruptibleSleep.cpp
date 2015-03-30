@@ -1,7 +1,5 @@
 #include "InterruptibleSleep.hpp"
 
-using namespace ml::common::concurrent;
-
 bool InterruptibleSleep::sleep(int milliseconds)
 {
 	bool result;

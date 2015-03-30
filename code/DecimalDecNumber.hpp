@@ -1,20 +1,10 @@
 #ifndef __COMMON_MATH_DECIMALDECNUMBER_HPP__
 #define __COMMON_MATH_DECIMALDECNUMBER_HPP__
 
-#if !defined(CORRECT_PLACE_TO_INCLUDE_DECIMAL_DECNUMBER)
-#error "Please include common/math/Decimal.hpp instead to allow change of implementation in future"
-#endif 
-#undef CORRECT_PLACE_TO_INCLUDE_DECIMAL_DECNUMBER
-
 #include <boost/operators.hpp>
-#include <common/common.hpp>
+#include "common.hpp"
 #include "decNumber.h"
 
-namespace ml {
-namespace common {
-namespace math {
-
-class DecimalMPFR;
 class DecimalDecNumber
 	: boost::field_operators<DecimalDecNumber> 
 	, boost::unit_steppable<DecimalDecNumber>
@@ -22,7 +12,7 @@ class DecimalDecNumber
 public:
    DecimalDecNumber();
 	DecimalDecNumber(const DecimalDecNumber &other);
-   DecimalDecNumber(const DecimalMPFR &other);
+   // DecimalDecNumber(const DecimalMPFR &other);
    DecimalDecNumber(int value);
 	explicit DecimalDecNumber(double value);
    explicit DecimalDecNumber(int64 value);
@@ -34,7 +24,7 @@ public:
     DecimalDecNumber &operator=(double rhs);
     DecimalDecNumber &operator=(int rhs);
 	DecimalDecNumber &operator=(const DecimalDecNumber &other);
-	DecimalDecNumber &operator=(const DecimalMPFR &other);
+	// DecimalDecNumber &operator=(const DecimalMPFR &other);
 
 	const DecimalDecNumber &operator +=(const DecimalDecNumber &other);
 	const DecimalDecNumber &operator -=(const DecimalDecNumber &other);
@@ -157,17 +147,13 @@ DecimalDecNumber power(const DecimalDecNumber &val, int32 exponent);
 DecimalDecNumber exp(const DecimalDecNumber &val);
 
 
-std::ostream & operator<<(std::ostream &os, const ml::common::math::DecimalDecNumber &d);
+std::ostream & operator<<(std::ostream &os, const DecimalDecNumber &d);
 
 
-} // math
-} // common
-} // ml
+typedef DecimalDecNumber::RoundParameters RoundParameters;
+const char * roundingModeToString(DecimalDecNumber::RoundingMode mode);
 
-typedef mlc::math::DecimalDecNumber::RoundParameters RoundParameters;
-const char * roundingModeToString(mlc::math::DecimalDecNumber::RoundingMode mode);
-
-inline ml::common::math::DecimalDecNumber abs(const ml::common::math::DecimalDecNumber &value)
+inline DecimalDecNumber abs(const DecimalDecNumber &value)
 {
 	return (value.isNegative() ? -value : value);
 }

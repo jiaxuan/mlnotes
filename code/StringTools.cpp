@@ -1,6 +1,6 @@
 #include "StringTools.hpp"
 
-#include <common/exception/Exception.hpp>
+// #include <common/exception/Exception.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
@@ -13,8 +13,6 @@
 #include <cmath>
 
 using namespace std;
-using namespace ml::common;
-using namespace ml::common::text;
 
 namespace bl = boost::lambda;
 
@@ -235,7 +233,8 @@ std::string StringTools::loadTextFile(const std::string &filename)
 	// Check that we managed to open the file
 	if (!is.is_open())
 	{
-		FTHROW(ml::common::exception::Exception, "Error reading file %s", filename.c_str());
+		// FTHROW(ml::common::exception::Exception, "Error reading file %s", filename.c_str());
+		throw("Error reading file");
 	}
 	
 	string line;

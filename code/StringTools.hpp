@@ -1,13 +1,9 @@
 #ifndef __COMMON_TEXT_STRINGTOOLS_HPP__
 #define __COMMON_TEXT_STRINGTOOLS_HPP__
 
-#include <common/common.hpp>
+#include "common.hpp"
 #include <string>
 
-namespace ml { 
-namespace common { 
-namespace text {
-	
 class StringTools
 {
 public:
@@ -48,9 +44,5 @@ public:
 	
 	static void TestHarness();
 };
-
-}; // text
-}; // common
-}; // ml
 
 #endif // __COMMON_TEXT_STRINGTOOLS_HPP__

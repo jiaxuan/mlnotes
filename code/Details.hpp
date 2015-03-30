@@ -1,15 +1,10 @@
 #ifndef __COMMON_CONCURRENT_DETAILS_HPP__
 #define __COMMON_CONCURRENT_DETAILS_HPP__
 
-#include <common/exception/Exception.hpp>
-#include <common/logging/Logger.hpp>
+// #include <common/exception/Exception.hpp>
+#include "Logger.hpp"
 #include <sys/time.h>
 #include <pthread.h>
-
-namespace ml {
-namespace common {
-namespace concurrent {
-namespace detail {
 
 template <typename Lock, typename LockFunction>
 struct LockHelper;
@@ -41,23 +36,25 @@ struct LockHelper<Lock, int (*)(Lock *, const struct timespec *)>
 			case ETIMEDOUT:
 				if (++counter > 5)
 				{
-					LCRIT("Lock [%p] can't be acquired for %d seconds, thread might be deadlocked\n%s",
-							lockee, lock_timeout * counter, mlc::diagnostics::StackTrace().toString().c_str());
+					LCRIT("Lock [%p] can't be acquired for %d seconds, thread might be deadlocked\n",
+							// lockee, lock_timeout * counter, mlc::diagnostics::StackTrace().toString().c_str());
+							lockee, lock_timeout * counter);
 				}
 				else
 				{
-					LWARN("Lock [%p] can't be acquired for %d seconds\n%s",
-							lockee, lock_timeout * counter, mlc::diagnostics::StackTrace().toString().c_str());
+					LWARN("Lock [%p] can't be acquired for %d seconds\n",
+							// lockee, lock_timeout * counter, mlc::diagnostics::StackTrace().toString().c_str());
+							lockee, lock_timeout * counter);
 				}
 
 				break;
 
 			case EDEADLK:
-				THROW(ml::common::exception::LogicError, "Deadlock detected: attempting to acquire the lock while holding read/write lock");
+				throw("Deadlock detected: attempting to acquire the lock while holding read/write lock");
 				break;
 
 			default:
-				THROW(ml::common::exception::RuntimeException, "Error encountered while attempting to aquire a lock", result);
+				throw("Error encountered while attempting to aquire a lock");
 			}
 		}
 	}
@@ -74,7 +71,7 @@ struct LockHelper<Lock, int (*)(Lock *)>
 
 		if (result)
 		{
-			THROW(ml::common::exception::RuntimeException, "Error encountered while attempting to aquire a lock", result);
+			throw("Error encountered while attempting to aquire a lock");
 		}
 	}
 };
@@ -96,17 +93,12 @@ void unlock_helper(Lock * lockee, LockFunction && unlocker)
 		return;
 
 	case EPERM:
-		THROW(ml::common::exception::LogicError, "Error detected: attempting to release an unaquired mutex");
+		throw("Error detected: attempting to release an unaquired mutex");
 		break;
 
 	default:
-		THROW(ml::common::exception::RuntimeException, "Error encountered while attempting to release mutex lock", result);
+		throw("Error encountered while attempting to release mutex lock");
 	}
-}
-
-}
-}
-}
 }
 
 #endif // __COMMON_CONCURRENT_DETAILS_HPP__

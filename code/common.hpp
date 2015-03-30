@@ -16,12 +16,6 @@
 #include <boost/ref.hpp>
 #include <cerrno>
 
-namespace ml {
-namespace common {
-};
-};
-
-namespace mlc = ml::common;
 
 /** ----------------------------------------------------------------------------------
  * Types we can use throughout the system to guard against unforseen errors if we

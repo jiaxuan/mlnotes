@@ -1,18 +1,10 @@
 #ifndef __COMMON_UTIL_TIME_HPP__
 #define __COMMON_UTIL_TIME_HPP__
 
-#include <common/common.hpp>
+#include "common.hpp"
 #include <ostream>
 #include <string>
 #include <sys/time.h>
-
-// ----------------------------------------------------------------------------------- 
-// ml::common::util
-// ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace util {	
 
 /** ------------------------------------------------------------------------------
  * @warning For the time being, this class only supports printing dates onwards from the
@@ -357,19 +349,16 @@ private:
 
 /**
  */
-ml::common::util::Time operator+(const ml::common::util::Time &t1, const ml::common::util::Time &t2);
+Time operator+(const Time &t1, const Time &t2);
 
 /**
  */
-ml::common::util::Time operator-(const ml::common::util::Time &t1, const ml::common::util::Time &t2);
+Time operator-(const Time &t1, const Time &t2);
 
 /**
  */
-std::ostream & operator<<(std::ostream &os, const ml::common::util::Time &t);
+std::ostream & operator<<(std::ostream &os, const Time &t);
 
-}; // util
-}; // common
-}; // ml
 
 #endif // __COMMON_UTIL_TIME_HPP__
 

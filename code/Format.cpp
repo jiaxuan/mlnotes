@@ -1,7 +1,7 @@
 
-#include <common/text/Format.hpp>
-#include <common/exception/Exception.hpp>
-#include <common/text/StringBuilder.hpp>
+#include "Format.hpp"
+// #include <common/exception/Exception.hpp>
+#include "StringBuilder.hpp"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -10,9 +10,9 @@
 #include <locale>
 #include <string>
 #include <iomanip>
+#include <string>
 
-using namespace ml::common;
-using namespace ml::common::text;
+using namespace std;
 
 namespace {
 	
@@ -48,12 +48,14 @@ namespace {
 bool Format::stringToBool(const char *val)
 {
 	if( NULL == val )
-		THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		// THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		throw("argument to Format is NULL");
 
 	bool result = false;
 	
 	if( ! ::getBoolValue(val, result) )
-		THROW(exception::InvalidArgumentException, "could not format the provided string: '" + std::string(val) + "'");
+		// THROW(exception::InvalidArgumentException, "could not format the provided string: '" + std::string(val) + "'");
+		throw("could not format the provided string: '" + std::string(val) + "'");
 
 	return result;
 }
@@ -92,12 +94,14 @@ std::string Format::boolToStringYN(bool val)
 int32 Format::stringToInt32(const char *val)
 {
 	if( NULL == val )
-		THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		// THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		throw("argument to Format is NULL");
 
 	int32 result = 0;
 	
 	if( 1 != sscanf(val, "%d", &result) )
-		THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+		// THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+		throw("could not format the provided string: '" +  std::string(val) + "'");
 
 	return result;
 }
@@ -159,12 +163,14 @@ std::string Format::doubleToString(double val, int dp, bool group)
 double Format::stringToDouble(const char *val)
 {
     if( NULL == val )
-        THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        // THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        throw("argument to Format is NULL");
 
     double result = 0;
     
     if( 1 != sscanf(val, "%lg", &result) )
-        THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+        // THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+        throw("could not format the provided string: '" +  std::string(val) + "'");
 
     return result;
 }
@@ -189,12 +195,14 @@ double Format::stringToDouble(const char *val, double const defaultValue)
 int64 Format::stringToInt64(const char *val)
 {
 	if( NULL == val )
-		THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		// THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+		throw("argument to Format is NULL");
 
 	int64 result = 0;
 	
-	if( 1 != sscanf(val, "%lld", &result) )
-		THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+	if( 1 != sscanf(val, "%ld", &result) )
+		// THROW(exception::InvalidArgumentException, "could not format the provided string: '" +  std::string(val) + "'");
+		throw("could not format the provided string: '" +  std::string(val) + "'");
 
 	return result;
 }
@@ -208,7 +216,7 @@ int64 Format::stringToInt64(const char *val, int64 defaultValue)
 
 	int64 result = 0;
 	
-	if( 1 != sscanf(val, "%lld", &result) )
+	if( 1 != sscanf(val, "%ld", &result) )
 		return defaultValue;
 
 	return result;
@@ -219,7 +227,7 @@ int64 Format::stringToInt64(const char *val, int64 defaultValue)
 std::string Format::int64ToString(int64 val)
 {
 	char buf[ 512 ] = {0};
-	sprintf(buf, "%lld", val);
+	sprintf(buf, "%ld", val);
 	return std::string(buf);
 }
 
@@ -231,13 +239,15 @@ std::string Format::toString(const char *format, ... )
     va_start(ap, format);
 
     if( NULL == format )
-        THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        // THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        throw("argument to Format is NULL");
 
     int result = 0;
 
     if( (result = vsnprintf(NULL, 0, format, ap)) <= 0 )
     {
-        THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        // THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        throw("error returned from vsnprintf", result);
     }
 
     std::string formattedString(result, '\0');
@@ -245,7 +255,8 @@ std::string Format::toString(const char *format, ... )
     va_end(ap);
 
     if( result <= 0 )
-        THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        // THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        throw("error returned from vsnprintf", result);
 
     return formattedString;
 }
@@ -255,7 +266,8 @@ std::string Format::toString(const char *format, ... )
 std::string Format::toStringV(const char *format, va_list ap)
 {
     if( NULL == format )
-        THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        // THROW(exception::InvalidArgumentException, "argument to Format is NULL");
+        throw("argument to Format is NULL");
 
     int result = 0;
     std::string formattedString;
@@ -267,24 +279,25 @@ std::string Format::toStringV(const char *format, va_list ap)
     }
 
     if( result <= 0 )
-        THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        // THROW(exception::RuntimeException, "error returned from vsnprintf", result);
+        throw("error returned from vsnprintf", result);
 
     return formattedString;
 }
 
 /** ----------------------------------------------------------------------------------
  */ 
-std::string Format::StringArrayToString(const ml::common::text::StringArray &v)
-{
-	std::ostringstream ss;
-	
-	foreach( i , v )
-	{
-		ss << *i << std::endl;
-	}
-	
-	return ss.str();
-}
+// std::string Format::StringArrayToString(const ml::common::text::StringArray &v)
+// {
+// 	std::ostringstream ss;
+// 	
+// 	foreach( i , v )
+// 	{
+// 		ss << *i << std::endl;
+// 	}
+// 	
+// 	return ss.str();
+// }
 
 /** ----------------------------------------------------------------------------------
  */ 
@@ -343,7 +356,7 @@ std::string Format::toTraceString(const char* data, unsigned int dataSize)
 	if( !data || !dataSize)
 		return "";
 	
-    mlc::text::StringBuilder builder;
+    StringBuilder builder;
     char hexbuf[16];
     char buf[1024];
     const char *pos = data;
@@ -421,7 +434,7 @@ std::string Format::toCommaFormatted(const std::string& value)
 	return result;
 }
 
-std::string Format::toCommaFormatted(const ml::common::math::Decimal& value)
+std::string Format::toCommaFormatted(const DecimalDecNumber& value)
 {
     return Format::toCommaFormatted(value.toString());
 }

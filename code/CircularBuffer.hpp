@@ -1,15 +1,8 @@
 #ifndef __COMMON_CONTAINER_CIRCULARBUFFER_HPP__
 #define __COMMON_CONTAINER_CIRCULARBUFFER_HPP__
 
-#include <common/common.hpp>
+#include "common.hpp"
 
-// ----------------------------------------------------------------------------------- 
-// ml::common::container
-// ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace container {
 
 /** ----------------------------------------------------------------------------------
  * simple circular buffer implementation.
@@ -259,9 +252,5 @@ int32 CircularBuffer<T>::peek(T *pt, uint32 count) const
 		
 	return count;
 }
-
-}; // container
-}; // common
-}; // ml
 
 #endif // __COMMON_CONTAINER_CIRCULARBUFFER_HPP__

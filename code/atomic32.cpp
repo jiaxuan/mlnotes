@@ -1,21 +1,21 @@
 
-#include <common/concurrent/atomic32.hpp>
+#include "atomic32.hpp"
 
 #if !defined(__i386__) && !defined(__x86_64__)
 	#error "atomic32 implementation currently requires x86"
 #endif
 
 // ----------------------------------------------------------------------------------- 
-// ml::common::concurrent::atomi32 implementation
+// atomi32 implementation
 // ----------------------------------------------------------------------------------- 
-uint32 ml::common::concurrent::atomic32::get() const
+uint32 atomic32::get() const
 { 
 	return m_val;
 }
 
 /** ---------------------------------------------------------------------------------- 
  * Not very atomic 
-void ml::common::concurrent::atomic32::set(uint32 val)
+void atomic32::set(uint32 val)
 { 
 	m_val = val;
 }
@@ -23,7 +23,7 @@ void ml::common::concurrent::atomic32::set(uint32 val)
 
 /** ---------------------------------------------------------------------------------- 
  */
-void ml::common::concurrent::atomic32::inc()
+void atomic32::inc()
 { 
 	asm volatile ("lock; incl %0"
 					:"=m" (m_val)
@@ -33,7 +33,7 @@ void ml::common::concurrent::atomic32::inc()
 
 /** ---------------------------------------------------------------------------------- 
  */
-void ml::common::concurrent::atomic32::dec()
+void atomic32::dec()
 { 
 	asm volatile ("lock; decl %0"
 					:"=m" (m_val)
@@ -43,7 +43,7 @@ void ml::common::concurrent::atomic32::dec()
 
 /** ---------------------------------------------------------------------------------- 
  */
-uint32 ml::common::concurrent::atomic32::add(uint32 val)
+uint32 atomic32::add(uint32 val)
 { 
     asm volatile ("lock; xaddl %0,%1"
 					: "=r"(val), "=m"(m_val)
@@ -54,14 +54,14 @@ uint32 ml::common::concurrent::atomic32::add(uint32 val)
 
 /** ---------------------------------------------------------------------------------- 
  */
-uint32 ml::common::concurrent::atomic32::sub(uint32 val)
+uint32 atomic32::sub(uint32 val)
 {
 	return add(static_cast<uint32>(-static_cast<int32>(val)));
 }
 
 /** ---------------------------------------------------------------------------------- 
  */
-uint32 ml::common::concurrent::atomic32::xchg(uint32 val)
+uint32 atomic32::xchg(uint32 val)
 { 
 	uint32 prev = val;
 
@@ -74,7 +74,7 @@ uint32 ml::common::concurrent::atomic32::xchg(uint32 val)
 
 /** ---------------------------------------------------------------------------------- 
  */
-uint32 ml::common::concurrent::atomic32::cmpx(uint32 cmp, uint32 val) 
+uint32 atomic32::cmpx(uint32 cmp, uint32 val) 
 {
     uint32 prev;
 
@@ -87,7 +87,7 @@ uint32 ml::common::concurrent::atomic32::cmpx(uint32 cmp, uint32 val)
 
 /** ---------------------------------------------------------------------------------- 
  */
-bool ml::common::concurrent::atomic32::cas(uint32 cmp, uint32 val)
+bool atomic32::cas(uint32 cmp, uint32 val)
 {
     unsigned short result;
 
@@ -104,7 +104,7 @@ bool ml::common::concurrent::atomic32::cas(uint32 cmp, uint32 val)
 
 /** ----------------------------------------------------------------------------------
  */
-std::ostream & operator<<(std::ostream &os, const ml::common::concurrent::atomic32 &a)
+std::ostream & operator<<(std::ostream &os, const atomic32 &a)
 {
 	return os << static_cast<uint32>(a);
 }

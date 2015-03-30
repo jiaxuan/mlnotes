@@ -5,12 +5,6 @@
 #include <linux/unistd.h>
 #include <unistd.h>
 
-namespace ml
-{
-namespace common
-{
-namespace concurrent
-{
 
 inline pid_t gettid(void)
 {
@@ -19,10 +13,6 @@ inline pid_t gettid(void)
 #else
     return -ENOSYS;
 #endif
-}
-
-}
-}
 }
 
 #endif

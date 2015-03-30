@@ -2,16 +2,12 @@
 #ifndef __COMMON_CONCURRENT_ATOMIC_HPP__
 #define __COMMON_CONCURRENT_ATOMIC_HPP__
 
-#include <common/common.hpp>
+#include "common.hpp"
 #include <ostream>
 
 // ----------------------------------------------------------------------------------- 
 // ml::common::concurrent
 // ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace concurrent {
 
 /** ----------------------------------------------------------------------------------
  * Atomic 32-bit number class
@@ -282,10 +278,6 @@ private:
 	mutable volatile uint32 m_val;
 };
 
-}; // concurrent
-}; // common
-}; // ml
-
 /**
  * Compare for equality
  * 
@@ -294,7 +286,7 @@ private:
  * @return true if <code>val</code> is equal to <code>a</code>
  */
 template <typename T>
-bool operator==(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator==(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) == static_cast<uint32>(a);
 }
@@ -307,7 +299,7 @@ bool operator==(const T &val, const ml::common::concurrent::atomic32 &a)
  * @return true if <code>val</code> is not equal to <code>a</code>
  */
 template <typename T>
-bool operator!=(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator!=(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) != static_cast<uint32>(a);
 }
@@ -320,7 +312,7 @@ bool operator!=(const T &val, const ml::common::concurrent::atomic32 &a)
  * @return true if <code>val</code> is less than <code>a</code>
  */
 template <typename T>
-bool operator<(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator<(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) < static_cast<uint32>(a);
 }
@@ -333,7 +325,7 @@ bool operator<(const T &val, const ml::common::concurrent::atomic32 &a)
  * @return true if <code>val</code> is less than or equal to <code>a</code>
  */
 template <typename T>
-bool operator<=(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator<=(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) <= static_cast<uint32>(a);
 }
@@ -346,7 +338,7 @@ bool operator<=(const T &val, const ml::common::concurrent::atomic32 &a)
  * @return true if <code>val</code> is greater than <code>a</code>
  */
 template <typename T>
-bool operator>(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator>(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) > static_cast<uint32>(a);
 }
@@ -359,7 +351,7 @@ bool operator>(const T &val, const ml::common::concurrent::atomic32 &a)
  * @return true if <code>val</code> is greater than or equal to <code>a</code>
  */
 template <typename T>
-bool operator>=(const T &val, const ml::common::concurrent::atomic32 &a)
+bool operator>=(const T &val, const atomic32 &a)
 {
 	return static_cast<uint32>(val) >= static_cast<uint32>(a);
 }
@@ -371,6 +363,6 @@ bool operator>=(const T &val, const ml::common::concurrent::atomic32 &a)
  * @param a the <code>atomic32</code> value to output
  * @return reference to the output stream
  */
-extern std::ostream & operator<<(std::ostream &os, const ml::common::concurrent::atomic32 &a);
+extern std::ostream & operator<<(std::ostream &os, const atomic32 &a);
 
 #endif //__COMMON_CONCURRENT_ATOMIC_HPP__

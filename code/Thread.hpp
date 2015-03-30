@@ -2,18 +2,14 @@
 #ifndef __COMMON_CONCURRENT_THREAD_HPP__
 #define __COMMON_CONCURRENT_THREAD_HPP__
 
-#include <common/common.hpp>
-#include <common/concurrent/atomic32.hpp>
+#include "common.hpp"
+#include "atomic32.hpp"
 #include <string>
 #include <pthread.h>
 
 // ----------------------------------------------------------------------------------- 
 // ml::common::concurrent
 // ----------------------------------------------------------------------------------- 
-
-namespace ml {
-namespace common {
-namespace concurrent {
 
 /** ----------------------------------------------------------------------------------
  * Thread base class implementation. 
@@ -207,12 +203,8 @@ private:
 private:	
 	const std::string m_desc;
 	Identifier m_id;
-	ml::common::concurrent::atomic32 m_state;
+	atomic32 m_state;
 	std::string m_createStack;
 };
 		
-}; // concurrent
-}; // common
-}; // ml
-
 #endif //__COMMON_CONCURRENT_THREAD_HPP__

@@ -1,10 +1,8 @@
 #ifndef __InterruptibleSleep__
 #define __InterruptibleSleep__
 
-#include <common/concurrent/Mutex.hpp>
-#include <common/concurrent/Condition.hpp>
-
-namespace ml { namespace common { namespace concurrent {
+#include "Mutex.hpp"
+#include "Condition.hpp"
 
 /**
  * Use this class when you want to have a thread go to pause, but very easily be able to wake it up from another thread.
@@ -26,11 +24,10 @@ public:
 	void wakeAll();
 	
 private:
-	ml::common::concurrent::Mutex m_mutex;
-	ml::common::concurrent::Condition m_condition;
+	Mutex m_mutex;
+	Condition m_condition;
 };
 
 
-}}}	// namespace
 
 #endif

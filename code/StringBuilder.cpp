@@ -1,11 +1,10 @@
-#include <common/text/StringBuilder.hpp>
-#include <common/math/DecimalDecNumber.hpp>
-#include <common/math/DecimalMPFR.hpp>
+#include "StringBuilder.hpp"
+#include "DecimalDecNumber.hpp"
+// #include <common/math/DecimalMPFR.hpp>
 #include <iostream>
-#include <common/logging/Logger.hpp>
+#include "Logger.hpp"
 
 using namespace std;
-using namespace ml::common::text;
 
 namespace {
 	char *createBuffer(uint32 size)
@@ -132,7 +131,7 @@ StringBuilder & StringBuilder::operator<<(const uint32 value)
 StringBuilder & StringBuilder::operator<<(const int64 value)
 {
 	char buf[512] = {0};
-	sprintf(buf, "%lld", value);
+	sprintf(buf, "%ld", value);
 	append(buf, strlen(buf));
 	return *this;
 }
@@ -140,18 +139,18 @@ StringBuilder & StringBuilder::operator<<(const int64 value)
 StringBuilder & StringBuilder::operator<<(const uint64 value)
 {
 	char buf[512] = {0};
-	sprintf(buf, "%llu", value);
+	sprintf(buf, "%lu", value);
 	append(buf, strlen(buf));
 	return *this;
 }
 
-StringBuilder & StringBuilder::operator<<(const mlc::math::DecimalMPFR &value)
-{
-	append(value.toString());
-	return *this;
-}
+// StringBuilder & StringBuilder::operator<<(const mlc::math::DecimalMPFR &value)
+// {
+// 	append(value.toString());
+// 	return *this;
+// }
 
-StringBuilder & StringBuilder::operator<<(const mlc::math::DecimalDecNumber &value)
+StringBuilder & StringBuilder::operator<<(const DecimalDecNumber &value)
 {
 	append(value.toString());
 	return *this;

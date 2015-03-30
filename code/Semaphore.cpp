@@ -1,20 +1,16 @@
 #include "Semaphore.hpp"
-#include <common/exception/Exception.hpp>
 #include <semaphore.h>
 #include <errno.h>
 
 using ml::common::exception::SystemException;
-
-namespace ml {
-namespace common {
-namespace concurrent {
 
 class Semaphore::Impl : boost::noncopyable {
 public:
     Impl(unsigned value) {
         if(-1 == ::sem_init(&m_sem, 0, value)) {
             const int code = errno;
-            FTHROWC(SystemException, code, "Couldn't initialize semaphore");
+            // FTHROWC(SystemException, code, "Couldn't initialize semaphore");
+            throw("Couldn't initialize semaphore");
         }
     }
     ~Impl() {
@@ -23,7 +19,8 @@ public:
     void post() {
         if(-1 == ::sem_post(&m_sem)) {
             const int code = errno;
-            FTHROWC(SystemException, code, "Couldn't increment semaphore");
+            // FTHROWC(SystemException, code, "Couldn't increment semaphore");
+            throw("Couldn't increment semaphore");
         }
     }
     void wait() {
@@ -31,7 +28,8 @@ public:
             const int code = errno;
             if(EINTR == code)
                 continue;
-            FTHROWC(SystemException, code, "Couldn't decrement semaphore");
+            // FTHROWC(SystemException, code, "Couldn't decrement semaphore");
+            throw("Couldn't decrement semaphore");
         }
     }
     bool tryWait() {
@@ -41,7 +39,8 @@ public:
                 return false;
             if(code == EINTR)
                 continue;
-            FTHROWC(SystemException, code, "Couldn't decrement semaphore");
+            // FTHROWC(SystemException, code, "Couldn't decrement semaphore");
+            throw("Couldn't decrement semaphore");
         }
         return true;
     }
@@ -49,7 +48,8 @@ public:
         int result = 0;
         if(-1 == ::sem_getvalue(const_cast<sem_t*>(&m_sem), &result)) {
             const int code = errno;
-            FTHROWC(SystemException, code, "Couldn't get semaphore's value");
+            // FTHROWC(SystemException, code, "Couldn't get semaphore's value");
+            throw("Couldn't get semaphore's value");
         }
         return result;
     }
@@ -77,6 +77,3 @@ int Semaphore::getValue() const {
     return pimpl->getValue();
 }
 
-}
-}
-}

@@ -6,13 +6,10 @@
 
 #include <cstdio>
 #include <time.h>
-#include <common/util/Time.hpp>
-#include <common/exception/Exception.hpp>
+#include "Time.hpp"
+// #include <common/exception/Exception.hpp>
 #include <apr_time.h>
-#include <common/text/StringTools.hpp>
-
-using namespace ml::common;
-using namespace ml::common::util;
+#include "StringTools.hpp"
 
 namespace {
 
@@ -61,7 +58,8 @@ const char * FORMAT_STRINGS[] = {
     int32 monthFromString(const char *sz)
     {
         if( NULL == sz )
-            THROW(exception::InvalidFormatException, "Month string is NULL");
+            // THROW(exception::InvalidFormatException, "Month string is NULL");
+            throw("Month string is NULL");
         
         int i = 0;
         do
@@ -71,7 +69,8 @@ const char * FORMAT_STRINGS[] = {
         }
         while( ++i < 12 );
         
-        THROW(exception::InvalidFormatException, "Unrecognized month string: " + std::string(sz) );
+        // THROW(exception::InvalidFormatException, "Unrecognized month string: " + std::string(sz) );
+        throw("Unrecognized month string: ");
     }
 
 
@@ -80,7 +79,8 @@ const char * FORMAT_STRINGS[] = {
         if ( (f == Time::ISO_8601_SEC_UTC || f == Time::ISO_8601_MSEC_UTC || f == Time::ISO_8601_USEC_UTC)
              && (tz != Time::UTC) )
         {
-            THROW(exception::InvalidArgumentException, "UTC timezone expected for specified format");
+            throw("UTC timezone expected for specified format");
+            // THROW(exception::InvalidArgumentException, "UTC timezone expected for specified format");
         }
     }
 } // namespace
@@ -102,10 +102,6 @@ const int64  Time::USECS_PER_DAY	= 24 * 60 * 60 * APR_USEC_PER_SEC;
 
 const Time	 Time::MIN_TIME(0,0);
 const Time   Time::MAX_TIME("20300101", ISO_YYYYMMDD);		// We need this bigger one day please!
-
-// ----------------------------------------------------------------------------------- 
-// ml::common::util::Time implementation
-// ----------------------------------------------------------------------------------- 
 
 Time::Time() : 
 	m_time( apr_time_now() )
@@ -167,10 +163,11 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 
 	#define SCAN_TIME(str, format, count, ...) \
 			if( count != (res = sscanf(str.c_str(), format, __VA_ARGS__)) ) \
-				THROW(exception::InvalidFormatException, "Unrecognized time format string : " + str, res)
+				throw("Unrecognized time format string : ")
 	
 	if( str.size() == 0 )
-		THROW(exception::InvalidFormatException, "Constructing a Time object with an empty format string");
+		throw("Constructing a Time object with an empty format string");
+		// THROW(exception::InvalidFormatException, "Constructing a Time object with an empty format string");
 
 	int res = 0;
 
@@ -404,9 +401,8 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 	
 		if (str.length() != 8)
 		{
-			FTHROW(exception::InvalidFormatException,
-				   "ISO date [%s] not in format YYYYMMDD",
-				   str.c_str());
+			// FTHROW(exception::InvalidFormatException, "ISO date [%s] not in format YYYYMMDD", str.c_str());
+			throw("ISO date [] not in format YYYYMMDD");
 		}
 		
 		SCAN_TIME(str, FORMAT_STRINGS[f], 3,
@@ -476,7 +472,8 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		et.tm_mon = monthFromString(buf);
 		if(strncmp(timezone, "GMT", 3) != 0 )
 		{
-			THROW(exception::InvalidFormatException, "Timezone should be GMT for RFC_822 format" +   std::string(timezone));
+			// THROW(exception::InvalidFormatException, "Timezone should be GMT for RFC_822 format" +   std::string(timezone));
+			throw("Timezone should be GMT for RFC_822 format");
 		}
 		break;
 		
@@ -495,7 +492,8 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		et.tm_mon -= 1;
 
         if (Z != 'Z')
-            THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            // THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            throw("Expecting trailing 'Z' character for UTC tz");
 		break;
 
 	case ISO_8601_MSEC_UTC:
@@ -514,7 +512,8 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		et.tm_mon -= 1;
 
         if (Z != 'Z')
-            THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            // THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            throw("Expecting trailing 'Z' character for UTC tz");
 		break;
 
 	case ISO_8601_USEC_UTC:
@@ -532,7 +531,8 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		et.tm_mon -= 1;
 
         if (Z != 'Z')
-            THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            // THROW(exception::InvalidFormatException, "Expecting trailing 'Z' character for UTC tz");
+            throw("Expecting trailing 'Z' character for UTC tz");
 		break;
 	//added to support OSE time format
 	case YYYYMMDD_HHMMSSMM_WITHDASH:
@@ -560,11 +560,13 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		break;
 
 	default:
-		THROW(exception::InvalidFormatException, "Unrecognized time format");
+		// THROW(exception::InvalidFormatException, "Unrecognized time format");
+		throw("Unrecognized time format");
 	}
 	
 	if( APR_SUCCESS != (res = apr_time_exp_gmt_get(&m_time, &et)) )
-		FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d", res);
+		// FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d", res);
+		throw("Could not convert exploded time to compact time");
 }
 
 /** ----------------------------------------------------------------------------------
@@ -581,7 +583,8 @@ int Time::getDayOfWeek(const int timezoneOffset) const
 
 	if( APR_SUCCESS != result)
 	{
-		THROW(exception::Exception, "There was an exception while exploding our internal time");
+		// THROW(exception::Exception, "There was an exception while exploding our internal time");
+		throw("There was an exception while exploding our internal time");
 	}
 
 	return exploded.tm_wday;
@@ -699,7 +702,8 @@ Time Time::round(TimeUnit unit, Time::Zone tz) const
 			et.tm_usec = 0;
 			break;
 		default:
-			FTHROW(exception::InvalidFormatException, "invalid period");
+			// FTHROW(exception::InvalidFormatException, "invalid period");
+			throw("invalid period");
 	}
 	
 	int64 packedTime;	 
@@ -707,19 +711,20 @@ Time Time::round(TimeUnit unit, Time::Zone tz) const
 
 	if (APR_SUCCESS != (res = apr_time_exp_gmt_get(&packedTime, &et)))
 	{
-		FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d %d %d %d %d %d %d %d %d %d %d", 
-												  unit,
-												  tz,
-												  et.tm_year,
-												  et.tm_yday,
-												  et.tm_mday,
-												  et.tm_wday,
-												  et.tm_hour,
-												  et.tm_min,
-												  et.tm_sec,
-												  et.tm_usec,
-												  res
-												  );
+		throw("Could not convert exploded time to compact time");
+		// FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d %d %d %d %d %d %d %d %d %d %d", 
+		// 										  unit,
+		// 										  tz,
+		// 										  et.tm_year,
+		// 										  et.tm_yday,
+		// 										  et.tm_mday,
+		// 										  et.tm_wday,
+		// 										  et.tm_hour,
+		// 										  et.tm_min,
+		// 										  et.tm_sec,
+		// 										  et.tm_usec,
+		// 										  res
+		// 										  );
 	}
 		
 	return Time(packedTime);
@@ -781,7 +786,6 @@ std::string Time::format(Time::Format f, Time::Zone tz) const
  */
 const char * Time::format(const Time &t, char buf[TIMEBUF_SIZE], Time::Format f, Time::Zone tz )
 {
-    using ml::common::text::StringTools;
     checkTimezoneFormatConsistency(f, tz);
 
 	struct timeval tv;
@@ -1076,7 +1080,8 @@ const char * Time::format(const Time &t, char buf[TIMEBUF_SIZE], Time::Format f,
 		break;
 
 	default:
-		THROW(exception::InvalidFormatException, "Unrecognized time format");
+		// THROW(exception::InvalidFormatException, "Unrecognized time format");
+		throw("Unrecognized time format");
 	}
 	
 	return buf;
@@ -1106,58 +1111,58 @@ void Time::addSeconds(const int delta)
 
 /** ----------------------------------------------------------------------------------
  */
-int32 Time::diffAsDays(const ml::common::util::Time& higher, const ml::common::util::Time& lower)
+int32 Time::diffAsDays(const Time& higher, const Time& lower)
 {
 	return static_cast<int32>( (higher.m_time - lower.m_time) / Time::USECS_PER_DAY );
 }
 
 /** ----------------------------------------------------------------------------------
  */
-int64 Time::diffAsHours(const ml::common::util::Time& higher, const ml::common::util::Time& lower)
+int64 Time::diffAsHours(const Time& higher, const Time& lower)
 {
 	return static_cast<int64>( (higher.m_time - lower.m_time) / Time::USECS_PER_HOUR );
 }
 
 /** ----------------------------------------------------------------------------------
  */
-int64 Time::diffAsMinutes(const ml::common::util::Time& higher, const ml::common::util::Time& lower)
+int64 Time::diffAsMinutes(const Time& higher, const Time& lower)
 {
 	return static_cast<int64>( (higher.m_time - lower.m_time) / Time::USECS_PER_MINUTE );
 }
 
 /** ----------------------------------------------------------------------------------
  */
-int64 Time::diffAsSeconds(const ml::common::util::Time& higher, const ml::common::util::Time& lower)
+int64 Time::diffAsSeconds(const Time& higher, const Time& lower)
 {
 	return static_cast<int64>( (higher.m_time - lower.m_time) / Time::USECS_PER_SECOND );
 }
 
-int64 Time::diffAsMillis(const ml::common::util::Time& higher, const ml::common::util::Time& lower)
+int64 Time::diffAsMillis(const Time& higher, const Time& lower)
 {
         return static_cast<int64>( (higher.m_time - lower.m_time) / Time::USECS_PER_MILLISECOND );
 }
 
 /** ----------------------------------------------------------------------------------
  */
-ml::common::util::Time ml::common::util::operator+(const ml::common::util::Time &t1, const ml::common::util::Time &t2)
+Time operator+(const Time &t1, const Time &t2)
 {
-	ml::common::util::Time t3(t1);
+	Time t3(t1);
 	t3 += t2;
 	return t3;
 }
 
 /** ----------------------------------------------------------------------------------
  */
-ml::common::util::Time ml::common::util::operator-(const ml::common::util::Time &t1, const ml::common::util::Time &t2)
+Time operator-(const Time &t1, const Time &t2)
 {
-	ml::common::util::Time t3(t1);
+	Time t3(t1);
 	t3 -= t2;
 	return t3;
 }
 
 /** ----------------------------------------------------------------------------------
  */
-std::ostream & ml::common::util::operator<<(std::ostream &os, const ml::common::util::Time &t)
+std::ostream & operator<<(std::ostream &os, const Time &t)
 {
-	return os << t.format(Time::DEFAULT, ml::common::util::Time::UTC);
+	return os << t.format(Time::DEFAULT, Time::UTC);
 }

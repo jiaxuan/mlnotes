@@ -1,18 +1,13 @@
 #define CORRECT_PLACE_TO_INCLUDE_DECIMAL_DECNUMBER
-#include <common/math/DecimalDecNumber.hpp>
-#include <common/math/DecimalMPFR.hpp>
-#include <common/exception/Exception.hpp>
-#include <common/logging/Logger.hpp>
-#include <common/text/Format.hpp>
-#include <common/pattern/AutoInvoke.hpp>
+#include "DecimalDecNumber.hpp"
+#include "Logger.hpp"
+#include "Format.hpp"
+// #include <common/pattern/AutoInvoke.hpp>
 #include <algorithm>
 #include <string>
 #include <stdlib.h>
 #include <boost/lexical_cast.hpp>
 #include "decContext.h"
-
-using namespace ml::common::math;
-using namespace ml::common::exception;
 
 namespace
 {
@@ -98,13 +93,13 @@ DecimalDecNumber::DecimalDecNumber(const DecimalDecNumber &rhs)
    m_context.digits = DECNUMDIGITS;         // set precision
 }
 
-DecimalDecNumber::DecimalDecNumber(const DecimalMPFR &rhs)
-{
-   decContextDefault(&m_context, DEC_INIT_BASE); // initialize
-   m_context.traps = 0;                     // no traps, thank you
-   m_context.digits = DECNUMDIGITS;         // set precision
-   setValue(rhs.toString(precisionDigitsWhenConvertingFromOldDecimal).c_str());
-}
+// DecimalDecNumber::DecimalDecNumber(const DecimalMPFR &rhs)
+// {
+//    decContextDefault(&m_context, DEC_INIT_BASE); // initialize
+//    m_context.traps = 0;                     // no traps, thank you
+//    m_context.digits = DECNUMDIGITS;         // set precision
+//    setValue(rhs.toString(precisionDigitsWhenConvertingFromOldDecimal).c_str());
+// }
 
 DecimalDecNumber::DecimalDecNumber(double rhs)
 {
@@ -188,13 +183,14 @@ void DecimalDecNumber::setValue(const char *rhs)
       // See decContext.h for definition of DEC_Errors and DEC_Information
       if (state & DEC_Errors)
       {
-         GLCRIT(DEC_NUMBER, "decNumberFromString conversion from [%s] generated error status [%d:%s]",
-                rhs, state, decContextStatusToString(&m_context));
-         FTHROW(InvalidArgumentException, "Attempt to create decimal from invalid string: [%s]", rhs);
+         // GLCRIT(DEC_NUMBER, "decNumberFromString conversion from [%s] generated error status [%d:%s]",
+         //        rhs, state, decContextStatusToString(&m_context));
+         // FTHROW(InvalidArgumentException, "Attempt to create decimal from invalid string: [%s]", rhs);
+         throw("Attempt to create decimal from invalid string");
       }
 
-      GLDBUG(DEC_NUMBER, "decNumberFromString conversion from [%s] generated info status [%d:%s]",
-             rhs, state, decContextStatusToString(&m_context));
+      // GLDBUG(DEC_NUMBER, "decNumberFromString conversion from [%s] generated info status [%d:%s]",
+      //        rhs, state, decContextStatusToString(&m_context));
       decContextClearStatus(&m_context, 0U);
    }
 }
@@ -243,17 +239,18 @@ DecimalDecNumber &DecimalDecNumber::operator=(const DecimalDecNumber & rhs)
 	return *this;
 }
 
-DecimalDecNumber &DecimalDecNumber::operator=(const DecimalMPFR & rhs)
-{
-   setValue(rhs.toString(precisionDigitsWhenConvertingFromOldDecimal).c_str());
-	return *this;
-}
+// DecimalDecNumber &DecimalDecNumber::operator=(const DecimalMPFR & rhs)
+// {
+//    setValue(rhs.toString(precisionDigitsWhenConvertingFromOldDecimal).c_str());
+// 	return *this;
+// }
 
 const DecimalDecNumber &DecimalDecNumber::operator +=(const DecimalDecNumber &rhs)
 {
 	if (decNumberIsNaN(&m_value) || decNumberIsNaN(&rhs.m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		// FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
 	decNumberAdd(&m_value, &m_value, &rhs.m_value, &m_context);
@@ -263,7 +260,8 @@ const DecimalDecNumber &DecimalDecNumber::operator -=(const DecimalDecNumber &rh
 {
 	if (decNumberIsNaN(&m_value) || decNumberIsNaN(&rhs.m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		// FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
    decNumberSubtract(&m_value, &m_value, &rhs.m_value, &m_context);
@@ -273,7 +271,8 @@ const DecimalDecNumber &DecimalDecNumber::operator *=(const DecimalDecNumber &rh
 {
 	if (decNumberIsNaN(&m_value) || decNumberIsNaN(&rhs.m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		// FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
    decNumberMultiply(&m_value, &m_value, &rhs.m_value, &m_context);
@@ -283,17 +282,20 @@ const DecimalDecNumber &DecimalDecNumber::operator /=(const DecimalDecNumber &rh
 {
 	if (decNumberIsNaN(&m_value) || decNumberIsNaN(&rhs.m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		// FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
    if (decNumberIsZero(&rhs.m_value))
 	{
-		FTHROW(LogicError, "Division by zero");
+		// FTHROW(LogicError, "Division by zero");
+		throw("Division by zero");
+
 	}
 	
 	if (decNumberIsInfinite(&m_value) || decNumberIsInfinite(&rhs.m_value))
 	{
-		FTHROW(LogicError, "Cannot divide infinity by infinity");
+		throw("Cannot divide infinity by infinity");
 	}
 
    decNumberDivide(&m_value, &m_value, &rhs.m_value, &m_context);
@@ -304,7 +306,7 @@ const DecimalDecNumber &DecimalDecNumber::operator ++()
 {
 	if (decNumberIsNaN(&m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
    decNumberAdd(&m_value, &m_value, &ONE.m_value, &m_context);
@@ -315,7 +317,7 @@ const DecimalDecNumber &DecimalDecNumber::operator --()
 {
 	if (decNumberIsNaN(&m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
    decNumberSubtract(&m_value, &m_value, &ONE.m_value, &m_context);
@@ -326,7 +328,7 @@ DecimalDecNumber DecimalDecNumber::operator +() const
 {
 	if (decNumberIsNaN(&m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
 	return DecimalDecNumber(*this);
@@ -336,7 +338,7 @@ DecimalDecNumber DecimalDecNumber::operator -() const
 {
 	if (decNumberIsNaN(&m_value))
 	{
-		FTHROW(InvalidStateException, "Performing arithmetic on uninitialised decimal [Nan]");
+		throw("Performing arithmetic on uninitialised decimal [Nan]");
 	}
 
 	DecimalDecNumber temp(*this);
@@ -348,7 +350,7 @@ int DecimalDecNumber::comparedTo(const DecimalDecNumber &rhs) const
 {
 	if (decNumberIsNaN(&m_value) || decNumberIsNaN(&rhs.m_value))
 	{
-		FTHROW(InvalidStateException, "Performing comparison on uninitialised decimal [Nan]");
+		throw("Performing comparison on uninitialised decimal [Nan]");
 	}
 
    // TODO: the commented out lines below do a strict comparison between two numbers.
@@ -563,8 +565,9 @@ const DecimalDecNumber DecimalDecNumber::round(uint32 decimalPlaces, RoundingMod
             tempContext.round = DEC_ROUND_HALF_EVEN; 
          break;
          default :
-            LCRIT("Rounding mode[%d] is not supported - rounding using default mode which is DEC_ROUND_HALF_AWAY_FROM_ZERO", mode);
-            tempContext.round = DEC_ROUND_HALF_UP;
+            throw("Rounding mode is not supported - rounding using default mode which is DEC_ROUND_HALF_AWAY_FROM_ZERO");
+            // LCRIT("Rounding mode[%d] is not supported - rounding using default mode which is DEC_ROUND_HALF_AWAY_FROM_ZERO", mode);
+            // tempContext.round = DEC_ROUND_HALF_UP;
       }
 
       decNumberFromString(&m_value, buffer, &tempContext);
@@ -604,138 +607,135 @@ const DecimalDecNumber DecimalDecNumber::round(const RoundParameters& rhs)
    return round(rhs.decimalPlaces, rhs.roundMode, rhs.roundIncrement);
 }
 
-namespace ml { namespace common { namespace math 
+void unpackScientificFormat(char * b, char *& e, int bufferSize, int decimalPlaces)
 {
-   void unpackScientificFormat(char * b, char *& e, int bufferSize, int decimalPlaces)
-   {
-      char * f = std::find(b, e, 'E');
-      if (f != e && (f+1) != e)
-      {
-         const bool isNegative = *b == '-';
-         if (isNegative)
-         {
-            ++b;
-            --bufferSize;
-         }
+  char * f = std::find(b, e, 'E');
+  if (f != e && (f+1) != e)
+  {
+	 const bool isNegative = *b == '-';
+	 if (isNegative)
+	 {
+		++b;
+		--bufferSize;
+	 }
 
-         const bool negativeExponent = *(f+1) == '-';
-         // Positive can be indicated by either a plus or no sign at all.
-         const bool signPresent = (*(f+1) == '-' || *(f+1) == '+');
-         const int magnitude = signPresent ? atoi(f+2) : atoi(f+1);
-         char * decimalPoint = 0;
-         int significantFigures = *(b+1) == '.' ? f - b - 1 : f - b;
+	 const bool negativeExponent = *(f+1) == '-';
+	 // Positive can be indicated by either a plus or no sign at all.
+	 const bool signPresent = (*(f+1) == '-' || *(f+1) == '+');
+	 const int magnitude = signPresent ? atoi(f+2) : atoi(f+1);
+	 char * decimalPoint = 0;
+	 int significantFigures = *(b+1) == '.' ? f - b - 1 : f - b;
 
-         if (negativeExponent)
-         {
-            // The following algorithm is deployed         - example 1.23456789E-5
-            // 1. remove the decimal place                 - example _123456789_________
-            // 2. shift the normalised portion             - example ______123456789____
-            // 3. add the decimal place and leading zeros  - example 0.0000123456789____
-            // 4. truncate if necessary to decimalPlaces
+	 if (negativeExponent)
+	 {
+		// The following algorithm is deployed         - example 1.23456789E-5
+		// 1. remove the decimal place                 - example _123456789_________
+		// 2. shift the normalised portion             - example ______123456789____
+		// 3. add the decimal place and leading zeros  - example 0.0000123456789____
+		// 4. truncate if necessary to decimalPlaces
 
-            if (*(b+1) == '.')
-            {
-               *(b+1) = *b;
-            }
+		if (*(b+1) == '.')
+		{
+		   *(b+1) = *b;
+		}
 
-            e = b + 2 + (magnitude-1) + significantFigures;
-            if (e - b > bufferSize)
-            {
-               if (isNegative)
-                  --b;
-               strcpy(b, "0.0");
-               e = b + 3;
-               return;
-            }
+		e = b + 2 + (magnitude-1) + significantFigures;
+		if (e - b > bufferSize)
+		{
+		   if (isNegative)
+			  --b;
+		   strcpy(b, "0.0");
+		   e = b + 3;
+		   return;
+		}
 
-            std::copy_backward(b, f, e);
+		std::copy_backward(b, f, e);
 
-            memset(b, '0', magnitude+1);
-            decimalPoint = b + 1;
-         }
-         else 
-         {
-            decimalPoint = b + magnitude + 1;
+		memset(b, '0', magnitude+1);
+		decimalPoint = b + 1;
+	 }
+	 else 
+	 {
+		decimalPoint = b + magnitude + 1;
 
-            if (significantFigures <= magnitude)
-            {
-               // The following algorithm is deployed         - example 1.23456789E+15
-               // 1. remove the decimal place                 - example 123456789_________
-               // 2. add trailing zeros if required           - example 12345678900000
-               // 3. insert the new decimal place             - example 12345678900000.0
-               // 4. truncate if necessary to decimalPlaces
-               
-               e = decimalPoint + 2;
-               if (e - b > bufferSize)
-               {
-                  // TODO: we could return a valid number here instead of NaN
-                  //       - assuming decNumberFromString understands scientific notation,
-                  //         we can reduce the number of significant figures and form it in scientific notation
-                  //       unfortunately the design instruction for this class is to reason in terms of d.p. NOT s.f.
-            	  const int buffSz = 64;
-            	  char buffer[buffSz];
-            	  strncpy(buffer,b,buffSz-1);
-            	  buffer[buffSz-1] = 0;
-            	  GLCRIT(DEC_NUMBER, "unpack scientific format converted[%s] to[NaN]", buffer);
-                  if (isNegative)
-                     --b;
-                  strcpy(b, "NaN");
-                  e = b + 3;
-                  return;
-               }
+		if (significantFigures <= magnitude)
+		{
+		   // The following algorithm is deployed         - example 1.23456789E+15
+		   // 1. remove the decimal place                 - example 123456789_________
+		   // 2. add trailing zeros if required           - example 12345678900000
+		   // 3. insert the new decimal place             - example 12345678900000.0
+		   // 4. truncate if necessary to decimalPlaces
+		   
+		   e = decimalPoint + 2;
+		   if (e - b > bufferSize)
+		   {
+			  // TODO: we could return a valid number here instead of NaN
+			  //       - assuming decNumberFromString understands scientific notation,
+			  //         we can reduce the number of significant figures and form it in scientific notation
+			  //       unfortunately the design instruction for this class is to reason in terms of d.p. NOT s.f.
+			  const int buffSz = 64;
+			  char buffer[buffSz];
+			  strncpy(buffer,b,buffSz-1);
+			  buffer[buffSz-1] = 0;
+			  // GLCRIT(DEC_NUMBER, "unpack scientific format converted[%s] to[NaN]", buffer);
+			  if (isNegative)
+				 --b;
+			  strcpy(b, "NaN");
+			  e = b + 3;
+			  return;
+		   }
 
-               // Remove the decimal place
-               if (*(b+1) == '.')
-               {
-                  std::copy(b+2, f, b+1);
-               }
+		   // Remove the decimal place
+		   if (*(b+1) == '.')
+		   {
+			  std::copy(b+2, f, b+1);
+		   }
 
-               // Add trailing zeros (and also the zero after the decimal point)
-               memset(b + significantFigures, '0', magnitude - significantFigures + 3);
-            }
-            else
-            {
-               // The following algorithm is deployed         - example 1.23456789E+5
-               // 1. remove the decimal place                 - example 12345_6789_________
-               // 2. add the new decimal place                - example 12345.6789_________
-               // 3. truncate if necessary to decimalPlaces
+		   // Add trailing zeros (and also the zero after the decimal point)
+		   memset(b + significantFigures, '0', magnitude - significantFigures + 3);
+		}
+		else
+		{
+		   // The following algorithm is deployed         - example 1.23456789E+5
+		   // 1. remove the decimal place                 - example 12345_6789_________
+		   // 2. add the new decimal place                - example 12345.6789_________
+		   // 3. truncate if necessary to decimalPlaces
 
-               std::copy(b+2, b+2+magnitude, b+1);
+		   std::copy(b+2, b+2+magnitude, b+1);
 
-               e = f;
-            }
-         }
+		   e = f;
+		}
+	 }
 
-         if (decimalPoint != 0)
-         {
-            *decimalPoint = '.';
-            e = std::min(e, decimalPoint + decimalPlaces + 1);
-            *e = 0;
-         }
+	 if (decimalPoint != 0)
+	 {
+		*decimalPoint = '.';
+		e = std::min(e, decimalPoint + decimalPlaces + 1);
+		*e = 0;
+	 }
 
-         // Check if we're zero (and if we are then remove the negative if necessary)
-         bool isZero = true;
-         for (char * it = b; it != e; ++it)
-         {
-            if (isdigit(*it) && *it != '0')
-            {
-               isZero = false;
-               break;
-            }
-         }
+	 // Check if we're zero (and if we are then remove the negative if necessary)
+	 bool isZero = true;
+	 for (char * it = b; it != e; ++it)
+	 {
+		if (isdigit(*it) && *it != '0')
+		{
+		   isZero = false;
+		   break;
+		}
+	 }
 
-         if (isZero)
-         {
-            if (isNegative)
-               --b;
+	 if (isZero)
+	 {
+		if (isNegative)
+		   --b;
 
-            strcpy(b, "0.0");
-            e = b + 3;
-            return;
-         }
-      }
-   }
-}}}
+		strcpy(b, "0.0");
+		e = b + 3;
+		return;
+	 }
+  }
+}
 
 std::string DecimalDecNumber::toStringAllowScientific(uint32 decimalPlaces) const
 {
@@ -786,6 +786,8 @@ std::string DecimalDecNumber::toString(uint32 decimalPlaces) const
       decNumberToString(&rounded.m_value, buffer);
    }
 
+   printf("after round: %s\n", buffer);
+
    char * b = buffer;
    char * e = buffer + strlen(buffer);
    unpackScientificFormat(b, e, BUFFER_SIZE, decimalPlaces);
@@ -816,6 +818,7 @@ std::string DecimalDecNumber::toString(uint32 decimalPlaces) const
       *(lastNonZeroDigitAfterDecimal + 1) = 0;
    }
 
+   printf("last return\n");
    return buffer;
 }
 
@@ -836,7 +839,7 @@ void convertToIntX<int32>(const decNumber* pDecNum, decContext* pContext, int32&
 	if (pContext->status & DEC_Errors)
 	{
 		char sNumber[1024];
-		FTHROW(InvalidArgumentException, "decNumberToInt32() set 'status' 0x%X during conversion of %s", pContext->status, decNumberToString(pDecNum, sNumber));
+		throw("decNumberToInt32() set 'status' 0x.. during conversion of");
 	}
 }
 
@@ -854,17 +857,19 @@ void convertToIntX<int64>(const decNumber* pDecNum, decContext* pContext, int64&
 	if (decNumberIsSpecial(pDecNum))
 	{
 		char sNumber[1024];
-		FTHROW(InvalidArgumentException, "Attempt to get an integer from invalid number %s", decNumberToString(pDecNum, sNumber));
+		throw("Attempt to get an integer from invalid number");
 	}
 	else if (pDecNum->exponent != 0)
 	{
 		char sNumber[1024];
-		FTHROW(InvalidArgumentException, "Unsupported exponent %d, only zero exponent is supported, number %s", pDecNum->exponent, decNumberToString(pDecNum, sNumber));
+		// FTHROW(InvalidArgumentException, "Unsupported exponent %d, only zero exponent is supported, number %s", pDecNum->exponent, decNumberToString(pDecNum, sNumber));
+		throw("Unsupported exponent , only zero exponent is supported, number ");
 	}
 	else if (pDecNum->digits > (int)(sizeof(s_arrPowerOfTen)/sizeof(*s_arrPowerOfTen)))
 	{
 		char sNumber[1024];
-		FTHROW(InvalidArgumentException, "Overflow during conversion, number of digits is %d, number %s", pDecNum->digits, decNumberToString(pDecNum, sNumber));
+		// FTHROW(InvalidArgumentException, "Overflow during conversion, number of digits is %d, number %s", pDecNum->digits, decNumberToString(pDecNum, sNumber));
+		throw("Overflow during conversion, number of digits is number ");
 	}
 	const decNumberUnit* pDigit = pDecNum->lsu;
 	uint64 nUnsignedResult = 0;
@@ -878,8 +883,9 @@ void convertToIntX<int64>(const decNumber* pDecNum, decContext* pContext, int64&
 			if ((nUnsignedResult < nPrev) || (nUnsignedResult > nMaxValue))
 			{
 				char sNumber[1024];
-				FTHROW(InvalidArgumentException, "Overflow during conversion, step %d (%llu, %llu, %llu), number %s",
-						i, nUnsignedResult, nPrev, nMaxValue, decNumberToString(pDecNum, sNumber));
+				throw("Overflow during conversion, step");
+				// FTHROW(InvalidArgumentException, "Overflow during conversion, step %d (%llu, %llu, %llu), number %s",
+				// 		i, nUnsignedResult, nPrev, nMaxValue, decNumberToString(pDecNum, sNumber));
 			}
 	}
 	result = isNegative ? -((int64)nUnsignedResult) : (int64)nUnsignedResult;
@@ -890,7 +896,8 @@ const T& DecimalDecNumber::toIntX(T& result) const
 {
 	if (! isValid())
 	{
-		FTHROW(InvalidArgumentException, "Attempt to get an integer from invalid number: %s", toString().c_str());
+		// FTHROW(InvalidArgumentException, "Attempt to get an integer from invalid number: %s", toString().c_str());
+		throw("wwwww");
 	}
 	if (m_value.exponent)
 	{
@@ -922,31 +929,31 @@ int64 DecimalDecNumber::toInt64() const
 	return toIntX(result);
 }
 
-std::ostream & ml::common::math::operator<<(std::ostream &os, const DecimalDecNumber &d)
+std::ostream & operator<<(std::ostream &os, const DecimalDecNumber &d)
 {
 	return os << d.toString();
 }
 
-DecimalDecNumber ml::common::math::avg(const DecimalDecNumber &lhs, const DecimalDecNumber &rhs)
+DecimalDecNumber avg(const DecimalDecNumber &lhs, const DecimalDecNumber &rhs)
 {
 	return (lhs + rhs) / DecimalDecNumber::TWO;
 }
 
-DecimalDecNumber ml::common::math::sqrt(const DecimalDecNumber &val)
+DecimalDecNumber sqrt(const DecimalDecNumber &val)
 {
 	DecimalDecNumber result;
    decNumberSquareRoot(&result.m_value, &val.m_value, &val.m_context);
 	return result;
 }
 
-DecimalDecNumber ml::common::math::power(const DecimalDecNumber &val, const DecimalDecNumber &exponent)
+DecimalDecNumber power(const DecimalDecNumber &val, const DecimalDecNumber &exponent)
 {
 	DecimalDecNumber result;
    decNumberPower(&result.m_value, &val.m_value, &exponent.m_value, &val.m_context);
 	return result;
 }
 
-DecimalDecNumber ml::common::math::power(const DecimalDecNumber &val, int32 exponent)
+DecimalDecNumber power(const DecimalDecNumber &val, int32 exponent)
 {
    decNumber dExponent;
    decNumberFromInt32(&dExponent, exponent);
@@ -955,7 +962,7 @@ DecimalDecNumber ml::common::math::power(const DecimalDecNumber &val, int32 expo
    return result;
 }
 
-DecimalDecNumber ml::common::math::exp(const DecimalDecNumber &val)
+DecimalDecNumber exp(const DecimalDecNumber &val)
 {
    decContext contextMath;
    decContextDefault(&contextMath, DEC_INIT_BASE); // initialize
@@ -1013,29 +1020,29 @@ bool DecimalDecNumber::toDecimalComponents(const DecimalDecNumber &val, int64& s
 	return true;
 }
 
-const char * roundingModeToString( ml::common::math::Decimal::RoundingMode mode)
+const char * roundingModeToString( DecimalDecNumber::RoundingMode mode)
 {
   switch (mode)
   {
-    case ml::common::math::Decimal::RoundingMode::ROUND_HALF_TO_POSITIVE_INFINITY:
+    case DecimalDecNumber::RoundingMode::ROUND_HALF_TO_POSITIVE_INFINITY:
       // FALLTHROUGH
-    case ml::common::math::Decimal::RoundingMode::ROUND_TO_POSITIVE_INFINITY:
+    case DecimalDecNumber::RoundingMode::ROUND_TO_POSITIVE_INFINITY:
       return "rounded up";
 
-    case ml::common::math::Decimal::RoundingMode::ROUND_HALF_TO_NEGATIVE_INFINITY:
+    case DecimalDecNumber::RoundingMode::ROUND_HALF_TO_NEGATIVE_INFINITY:
       // FALLTHROUGH
-    case ml::common::math::Decimal::RoundingMode::ROUND_TO_NEGATIVE_INFINITY:
+    case DecimalDecNumber::RoundingMode::ROUND_TO_NEGATIVE_INFINITY:
       return "rounded down";
 
-    case ml::common::math::Decimal::RoundingMode::ROUND_AWAY_FROM_ZERO:
+    case DecimalDecNumber::RoundingMode::ROUND_AWAY_FROM_ZERO:
       return "rounded away from zero";
-    case ml::common::math::Decimal::RoundingMode::ROUND_TO_ZERO:
+    case DecimalDecNumber::RoundingMode::ROUND_TO_ZERO:
       return "rounded towards zero";
-    case ml::common::math::Decimal::RoundingMode::ROUND_HALF_AWAY_FROM_ZERO:
+    case DecimalDecNumber::RoundingMode::ROUND_HALF_AWAY_FROM_ZERO:
       return "rounded half from zero";
-    case ml::common::math::Decimal::RoundingMode::ROUND_HALF_TO_ZERO:
+    case DecimalDecNumber::RoundingMode::ROUND_HALF_TO_ZERO:
       return "rounded half towards zero";
-    case ml::common::math::Decimal::RoundingMode::ROUND_HALF_TO_EVEN:
+    case DecimalDecNumber::RoundingMode::ROUND_HALF_TO_EVEN:
       return "rounded half even";
   };
 
