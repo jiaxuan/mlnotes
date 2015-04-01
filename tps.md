@@ -1558,7 +1558,11 @@ Checking interval is set to 10ms:
 	                                                            |                                   |
 	                                                            |___________________________________|
 	                                                                         |
-	                                                                applyAXESalesSpread      SpotIndicative
+	                                                                applyAXESalesSpread
+	                                                                		 |
+	                                                                		 |
+	                                                                		 |		 
+	                                                                verifyInvertedPrice      SpotIndicative
 	                                                                         |                      |
 	                                                                         |______________________|
 	                                                                                    |
@@ -1749,6 +1753,15 @@ How to get rid of the extensive copying of InternalTPSTick in bubblenet nodes
 	}
 
 
+For ComputeNode<InternalTPSTick>, get rid of boost::optional: check performance between optional and raw pointer.
+
+Improve the performance of validateArgs:
+- combine testGet and doGet
+- for nodes with a single parent, any need to do it at all ?
+- for nodes with multiple parents, minimize the impact of validate:
+  - if only one parent is updated, there's no need to do it
+  - how to check if any parent has been updated since last call ?
+
 ## Audit Improvement
 
 For audit cloning,
@@ -1776,7 +1789,7 @@ Use pool for SpotTick events
 
 ### Logging
 
-Replace LDBUG, GLDBUG with wrappers that evaluate arguments only when actually logging
+See Aereon logbuffer
 
 ### String builder
 

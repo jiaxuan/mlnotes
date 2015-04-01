@@ -786,7 +786,7 @@ std::string DecimalDecNumber::toString(uint32 decimalPlaces) const
       decNumberToString(&rounded.m_value, buffer);
    }
 
-   printf("after round: %s\n", buffer);
+   // printf("after round: %s\n", buffer);
 
    char * b = buffer;
    char * e = buffer + strlen(buffer);
@@ -818,7 +818,7 @@ std::string DecimalDecNumber::toString(uint32 decimalPlaces) const
       *(lastNonZeroDigitAfterDecimal + 1) = 0;
    }
 
-   printf("last return\n");
+   // printf("last return\n");
    return buffer;
 }
 

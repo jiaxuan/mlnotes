@@ -564,7 +564,7 @@ Time::Time(const std::string &str, Time::Format f, Time::Zone tz) :
 		throw("Unrecognized time format");
 	}
 	
-	if( APR_SUCCESS != (res = apr_time_exp_gmt_get(&m_time, &et)) )
+	if( APR_SUCCESS != (res = apr_time_exp_gmt_get((apr_time_t*)&m_time, &et)) )
 		// FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d", res);
 		throw("Could not convert exploded time to compact time");
 }
@@ -709,7 +709,7 @@ Time Time::round(TimeUnit unit, Time::Zone tz) const
 	int64 packedTime;	 
 	int res = 0;
 
-	if (APR_SUCCESS != (res = apr_time_exp_gmt_get(&packedTime, &et)))
+	if (APR_SUCCESS != (res = apr_time_exp_gmt_get((apr_time_t*)&packedTime, &et)))
 	{
 		throw("Could not convert exploded time to compact time");
 		// FTHROW(exception::InvalidFormatException, "Could not convert exploded time to compact time : %d %d %d %d %d %d %d %d %d %d %d", 
