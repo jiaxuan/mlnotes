@@ -28,6 +28,76 @@ FIX tags are defined in
 
 	libs/ext/fix/StandardFixTags.hpp
 
+
+
+
+
+Hi TPS Dev,
+
+There was a question from FX Support  on the usage of rawBid/ask and marketBid/Ask? Can someone tell us what these fields are used for in fwdTick?
+
+Thanks
+Seeman
+
+
+Hi Seeman,
+
+The marketBid/Ask fields contains market bid/ask values received either from BrokerPage or RIO. As far as I know, market bid/ask are used in fwd pricing setup screen only. These fields are not used in computations.
+
+The rawBid/Ask fields are used in TPS computations (e.g. in ApplyFwdFastMarket node). The raw values have only core fwd spreads applied on top of market mid with no fast market applied.
+
+Regards,
+Dmitry
+
+
+<!-- ################################################################################### -->
+
+
+MAKING THE PATCH FILE : 
+---------------------
+1) sglsgfxapd2:bin% mkdir -p patch-PANPROD-3330/bin
+2) sglsgfxapd2:bin% cp fx_sierra_trade_tps_interface patch-PANPROD-3330/bin/
+3) sglsgfxapd2:bin% cd patch-PANPROD-3330/
+4) sglsgfxapd2:patch-PANPROD-3330% create_patch
+Creating patch from contents of this directory: /export/work/shekhsid/panther/phase-11.5/install/bin/patch-PANPROD-3330
+Input patch name:
+patch-PANPROD-3330
+Patches only match executables that show up in the panther.processes file. If you are
+releasing a library, create a regular expression that matches the executables that
+use that library. The regex needs to conform to Perl regex standards, and you can
+test it by grepping the panther.processes file for the target environment, by doing:
+grep -P "insert_regex_here" *_prod.panther.processes 
+
+Here are some examples:
+1) To match all processes, just leave the regex blank.
+
+2) To match two different processes, use the or operator '|', example:
+fx_market_maker4|fx_smart_order_capture_server
+
+3) To match a process with a specific identifier:
+bana_fix_gateway --identifier=CNXMM|bana_fix_gateway --identifier=CNXMMTKY
+
+4) To match a processes, but exclude a specific process, in this example it
+matches all bana_fix_gateways except those with the identifiers OSE, CFETS, HKFE,
+and the DropCopy instances:
+bana_fix_gateway --identifier=(?!OSE|CFETS|HKFE|LMAX|Logiscope-DropCopy|RTNS-DropCopy)
+
+Input patch regexp match string, or leave blank to patch every process on every host
+fx_sierra_trade_tps_interface
+Created patch-info.txt
+Creating patch tarball:
+
+patch-PANPROD-3330/
+patch-PANPROD-3330/md5sum.txt
+patch-PANPROD-3330/bin/
+patch-PANPROD-3330/bin/fx_sierra_trade_tps_interface
+patch-PANPROD-3330/patch-info.txt
+
+Patch tarball created: ./patch-PANPROD-3330.tar.gz
+
+
+
+
 <!-- ################################################################################### -->
 
 # Utilities
@@ -164,6 +234,7 @@ See also:
 
 - `libs/panther/registry/RegistryUpdater`: update registry at runtime
 
+
 <!-- ################################################################################### -->
 
 # Logging
@@ -179,6 +250,7 @@ Location can be `<stdout>`, `<stderr>` or a `dir path`
 
 	/ENVIRONMENT/logging
 	/PROCESS/logging
+
 
 <!-- ################################################################################### -->
 
@@ -218,11 +290,13 @@ or
 	Task : private Thread {
 	bool onProcess() { return function_or_functor(); }
 
+
 <!-- ################################################################################### -->
 
 # Caching
 
 libs/spec/cache
+
 
 <!-- ################################################################################### -->
 
@@ -247,6 +321,7 @@ libs/ext/db
 
 
 libs/panther/db
+
 
 
 <!-- ################################################################################### -->
@@ -1556,4 +1631,51 @@ and decides the configId of the FXSpotTickWithDepth generated.
 
 
 ## Client Side
+
+
+Note that each InternalTPSTick takes 22k:
+
+	sizeof(OutrightInput)=2456
+	sizeof(OutrightOutput)=6984
+	sizeof(InternalTPSTick)=22820
+	sizeof(AXEOutrightSubscription)=4880
+	sizeof(RVOutrightSubscription)=3940
+
+And there are 30 nodes with local copy, so bubblenet consumes a lot of memory:
+
+	% ag 'optional<InternalTPSTick>' axe/graph/ | grep tickStorage
+	
+	/axe/graph/ApplyAXESalesSpread.hpp:29:      boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyAXEInterpolation.hpp:28:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyDollarRate.hpp:17:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdFastMarket.hpp:39:       boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdSalesSpread.hpp:48:      mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdSpreadMultiplier.hpp:31:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyGroupTradeVolume.hpp:29:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplySkewInterpolation.hpp:18:    //mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyAXEFastMarketData.hpp:16:   boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyFwdLimit.hpp:21:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyFwdTickData.hpp:16:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyInvertedPrice.hpp:26:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyMinSpreadData.hpp:19:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyPostCalculate.hpp:34:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySpotLimit.hpp:19:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySalesSpreadData.hpp:29:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySpreadMultiplierData.hpp:17:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CreateReciprocalRate.hpp:16:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/ApplyCrossSpotCrossFwdDollarRate.hpp:14:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/CalculateCrossFwdPointsForCrossSpot.hpp:59:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/VerifyCrossSpotRatesForCrossFwd.hpp:15:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossedSpot/VerifyCrossSpotRates.hpp:16: boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpot/calculateDirectSpotPoints.hpp:13:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/ApplyDSCFDollarRate.hpp:23:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/VerifySpotRatesConsistency.hpp:14:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/calculateMidSpotBased.hpp:58: boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotDirectFwd/calculateDirectFwdRate.hpp:34:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/InitializeTick.hpp:40:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdToAlignSpot.hpp:29:      mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/PrepareSkewData.hpp:30:    boost::optional<InternalTPSTick> tickStorage;
+
+	% ag 'optional<InternalTPSTick>' axe/graph/ | grep tickStorage | wc -l
+	30
 

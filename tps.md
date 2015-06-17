@@ -1801,3 +1801,50 @@ Check Decimal.toString() performance.
 addReasoning(...) with Decimal.toString() seems to be a major bottleneck for bubblenet
 
 
+
+Note that each InternalTPSTick takes 22k:
+
+	sizeof(OutrightInput)=2456
+	sizeof(OutrightOutput)=6984
+	sizeof(InternalTPSTick)=22820
+	sizeof(AXEOutrightSubscription)=4880
+	sizeof(RVOutrightSubscription)=3940
+
+And there are 30 nodes with local copy, so bubblenet consumes a lot of memory:
+
+	% ag 'optional<InternalTPSTick>' axe/graph/ | grep tickStorage
+	
+	/axe/graph/ApplyAXESalesSpread.hpp:29:      boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyAXEInterpolation.hpp:28:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyDollarRate.hpp:17:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdFastMarket.hpp:39:       boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdSalesSpread.hpp:48:      mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdSpreadMultiplier.hpp:31:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyGroupTradeVolume.hpp:29:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplySkewInterpolation.hpp:18:    //mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyAXEFastMarketData.hpp:16:   boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyFwdLimit.hpp:21:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyFwdTickData.hpp:16:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyInvertedPrice.hpp:26:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyMinSpreadData.hpp:19:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifyPostCalculate.hpp:34:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySpotLimit.hpp:19:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySalesSpreadData.hpp:29:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/AutoQuoteConditions/VerifySpreadMultiplierData.hpp:17:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CreateReciprocalRate.hpp:16:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/ApplyCrossSpotCrossFwdDollarRate.hpp:14:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/CalculateCrossFwdPointsForCrossSpot.hpp:59:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossSpotCrossFwd/VerifyCrossSpotRatesForCrossFwd.hpp:15:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/CrossedSpot/VerifyCrossSpotRates.hpp:16: boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpot/calculateDirectSpotPoints.hpp:13:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/ApplyDSCFDollarRate.hpp:23:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/VerifySpotRatesConsistency.hpp:14:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotCrossFwd/calculateMidSpotBased.hpp:58: boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/DirectSpotDirectFwd/calculateDirectFwdRate.hpp:34:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/InitializeTick.hpp:40:    boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/ApplyFwdToAlignSpot.hpp:29:      mutable boost::optional<InternalTPSTick> tickStorage;
+	/axe/graph/PrepareSkewData.hpp:30:    boost::optional<InternalTPSTick> tickStorage;
+
+	% ag 'optional<InternalTPSTick>' axe/graph/ | grep tickStorage | wc -l
+	30
+

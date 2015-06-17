@@ -111,12 +111,6 @@ struct NullDeleter
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 
-class ReasoningStore;
-
-struct ReasoningParams
-{
-};
-
 struct ReasoningAppender
 {
     uint16_t tag;
@@ -146,45 +140,41 @@ struct ReasoningAppender
 
 struct NodeReasoning
 {
-    std::atomic<uint8_t> refcnt;
+    std::atomic<uint16_t> refcnt;
     uint8_t size;
     ReasoningAppender* appenders[APPENDERS_PER_NODE];
 };
 
 INLINE void clearNode(NodeReasoning* p) { p->size = 0; }
 INLINE void appendReasoning(NodeReasoning* p, ReasoningAppender* appender) { p->appenders[p->size++] = appender; }
-INLINE NodeReasoning* copyNode(NodeReasoning* p) { p->refcnt.fetch_add(1, std::memory_order_relaxed); return p; }
+INLINE NodeReasoning* copyNodeReasoning(NodeReasoning* p) { p->refcnt.fetch_add(1, std::memory_order_relaxed); return p; }
 
-#define NODES_PER_CALC 32
+#define NODES_PER_BNET 32
 
-struct CalcReasoning
+struct BnetReasoning
 {
     uint8_t size;
-    NodeReasoning* nodes[NODES_PER_CALC];
+    NodeReasoning* nodes[NODES_PER_BNET];
 };
 
-INLINE void clearCalc(CalcReasoning* p) { p->size = 0; }
-INLINE void appendNode(CalcReasoning* p, NodeReasoning* node) { p->nodes[p->size++] = node; }
+INLINE void clearBnetReasoning(BnetReasoning* p) { p->size = 0; }
+INLINE void appendNodeReasoning(BnetReasoning* p, NodeReasoning* node) { p->nodes[p->size++] = node; }
 
-// FIXME ajust size: calc > node > appender
+const int TLS_BNET_BUF_SIZE = (1<<10);
+const int TLS_NODE_BUF_SIZE = (1<<12);
+const int TLS_APPENDER_BUF_SIZE = (1<<14);
 
-const int TLS_CALC_BUF_SIZE = (1<<10);
-const int TLS_NODE_BUF_SIZE = (1<<10);
-const int TLS_APPENDER_BUF_SIZE = (1<<10);
-;
-const int INIT_CALC_BUF_SIZE = (1<<12);
-const int INIT_NODE_BUF_SIZE = (1<<12);
-const int INIT_APPENDER_BUF_SIZE = (1<<12);
-;
-// no need to call constructor
-class AppenderArena
+const int INIT_BNET_BUF_SIZE = TLS_BNET_BUF_SIZE * 4;
+const int INIT_NODE_BUF_SIZE = TLS_NODE_BUF_SIZE * 4;
+const int INIT_APPENDER_BUF_SIZE = TLS_APPENDER_BUF_SIZE * 4;
+
+class ReasoningAppenderArena
 {
 public:
     static ReasoningAppender* alloc() { return new ReasoningAppender(); }
 };
 
-// NEED to call constructor
-class NodeArena
+class NodeReasoningArena
 {
 public:
     static NodeReasoning* alloc() { 
@@ -195,29 +185,29 @@ public:
     }
 };
 
-// no need to call constructor
-class CalcArena
+class BnetReasoningArena
 {
 public:
-    static CalcReasoning* alloc() { return new CalcReasoning(); }
+    static BnetReasoning* alloc() { return new BnetReasoning(); }
 };
 
 // FIXME add arenas with raw pointers to avoid calling 
 class ReasoningStore
 {
 private:
-private:
     ReasoningStore() =delete;
 public:
     static void init() {
-        for (uint32_t i = 0; i < INIT_CALC_BUF_SIZE; ++i) 
-            calcStore.enqueue(CalcArena::alloc());
+        for (uint32_t i = 0; i < INIT_BNET_BUF_SIZE; ++i) 
+            bnetStore.enqueue(BnetReasoningArena::alloc());
         for (uint32_t i = 0; i < INIT_NODE_BUF_SIZE; ++i) 
-            nodeStore.enqueue(NodeArena::alloc());
+            nodeStore.enqueue(NodeReasoningArena::alloc());
         for (uint32_t i = 0; i < INIT_APPENDER_BUF_SIZE; ++i) 
-            appenderStore.enqueue(AppenderArena::alloc());
+            appenderStore.enqueue(ReasoningAppenderArena::alloc());
     }
-
+    static void shutdown() {
+        // cleanup
+    }
     static ReasoningAppender* allocAppender() { 
         static __thread int tlsAppenderAllocIndex = 0;
         static __thread std::vector<ReasoningAppender*> tlsAppenderAllocBuffer(TLS_APPENDER_BUF_SIZE);
@@ -229,7 +219,7 @@ public:
                 return tlsAppenderAllocBuffer[n-1];
             }
             printf("### new appender\n");
-            return AppenderArena::alloc();
+            return ReasoningAppenderArena::alloc();
         }
         return tlsAppenderAllocBuffer[tlsAppenderAllocIndex--];
     }
@@ -260,13 +250,13 @@ public:
                 return tlsNodeAllocBuffer[n-1];
             }
             printf("### new node\n");
-            return NodeArena::alloc();
+            return NodeReasoningArena::alloc();
         }
         return tlsNodeAllocBuffer[tlsNodeAllocIndex--];
     }
     static void freeNodes(NodeReasoning** p, int cnt) {
         static __thread int tlsNodeFreeIndex = 0;
-        static __thread std::vector<NodeReasoning*> tlsNodeFreeBuffer(TLS_NODE_BUF_SIZE + NODES_PER_CALC);
+        static __thread std::vector<NodeReasoning*> tlsNodeFreeBuffer(TLS_NODE_BUF_SIZE + NODES_PER_BNET);
 
         for (int i = 0; i < cnt; ++i) {
             if (p[i]->refcnt.fetch_sub(0, std::memory_order_acq_rel) == 1)
@@ -288,56 +278,134 @@ public:
             tlsNodeFreeIndex = 0;
         }
     }
-    static CalcReasoning* allocCalc() {
-        static __thread int tlsCalcAllocIndex = 0;
-        static __thread std::vector<CalcReasoning*> tlsCalcAllocBuffer(TLS_CALC_BUF_SIZE);
+    static BnetReasoning* allocBnet() {
+        static __thread int tlsBnetAllocIndex = 0;
+        static __thread std::vector<BnetReasoning*> tlsBnetAllocBuffer(TLS_BNET_BUF_SIZE);
 
-        if (unlikely(tlsCalcAllocIndex == 0)) {
-            int n = calcStore.try_dequeue_bulk(tlsCalcAllocBuffer.begin(), TLS_CALC_BUF_SIZE);
+        if (unlikely(tlsBnetAllocIndex == 0)) {
+            int n = bnetStore.try_dequeue_bulk(tlsBnetAllocBuffer.begin(), TLS_BNET_BUF_SIZE);
             if (n > 0) {
-                tlsCalcAllocIndex = n - 2;
-                return tlsCalcAllocBuffer[n-1];
+                tlsBnetAllocIndex = n - 2;
+                return tlsBnetAllocBuffer[n-1];
             }
-            printf("### new calc\n");
-            return CalcArena::alloc();
+            printf("### new bnet\n");
+            return BnetReasoningArena::alloc();
         }
-        return tlsCalcAllocBuffer[tlsCalcAllocIndex--];
+        return tlsBnetAllocBuffer[tlsBnetAllocIndex--];
     }
-    static void freeCalc(CalcReasoning* p) {
-        static __thread int tlsCalcFreeIndex = 0;
-        static __thread std::vector<CalcReasoning*> tlsCalcFreeBuffer(TLS_CALC_BUF_SIZE);
+    static void freeBnet(BnetReasoning* p) {
+        static __thread int tlsBnetFreeIndex = 0;
+        static __thread std::vector<BnetReasoning*> tlsBnetFreeBuffer(TLS_BNET_BUF_SIZE);
 
-        tlsCalcFreeBuffer[tlsCalcFreeIndex++] = p;
-        if (unlikely(tlsCalcFreeIndex & TLS_CALC_BUF_SIZE)) {
-            CalcReasoning* calc;
-            for (int i = 0; i < tlsCalcFreeIndex; ++i) {
-                calc = tlsCalcFreeBuffer[i];
-                freeNodes(calc->nodes, calc->size);
-                calc->size = 0;
+        tlsBnetFreeBuffer[tlsBnetFreeIndex++] = p;
+        if (unlikely(tlsBnetFreeIndex & TLS_BNET_BUF_SIZE)) {
+            BnetReasoning* bnet;
+            for (int i = 0; i < tlsBnetFreeIndex; ++i) {
+                bnet = tlsBnetFreeBuffer[i];
+                freeNodes(bnet->nodes, bnet->size);
+                bnet->size = 0;
             }
-            if (!calcStore.enqueue_bulk(tlsCalcFreeBuffer.begin(), TLS_CALC_BUF_SIZE)) {
+            if (!bnetStore.enqueue_bulk(tlsBnetFreeBuffer.begin(), TLS_BNET_BUF_SIZE)) {
                 // CRIT
-                printf("*** calc bulk enqueue failed\n");
+                printf("*** bnet bulk enqueue failed\n");
             }
-            tlsCalcFreeIndex = 0;
+            tlsBnetFreeIndex = 0;
         }
     }
 private:
-    static moodycamel::ConcurrentQueue<CalcReasoning*> calcStore;
+    static moodycamel::ConcurrentQueue<BnetReasoning*> bnetStore;
     static moodycamel::ConcurrentQueue<NodeReasoning*> nodeStore;
     static moodycamel::ConcurrentQueue<ReasoningAppender*> appenderStore;
 };
 
-moodycamel::ConcurrentQueue<CalcReasoning*> ReasoningStore::calcStore;
+moodycamel::ConcurrentQueue<BnetReasoning*> ReasoningStore::bnetStore;
 moodycamel::ConcurrentQueue<NodeReasoning*> ReasoningStore::nodeStore;
 moodycamel::ConcurrentQueue<ReasoningAppender*> ReasoningStore::appenderStore;
 
+struct ReasoningStoreInitializer
+{
+    ReasoningStoreInitializer() {
+        printf("== init\n");
+        ReasoningStore::init();
+    }
+    ~ReasoningStoreInitializer() {
+        printf("== shutdown\n");
+        ReasoningStore::shutdown();
+    }
+};
+
+static ReasoningStoreInitializer g_ReasoningStoreInitializer;
+
+struct A
+{
+    A() { printf("A\n"); }
+    ~A() { printf("~A\n"); }
+};
+
+void testd()
+{
+	DecimalDecNumber d(31400000000000000000.0);
+	DecimalDecNumber d2;
+
+	uint32_t count = 1000000;
+	uint64_t ts = Time().usecs();
+	for (uint32_t i = 0; i < count; ++i) {
+		d = d2;
+	}
+	printf("copy: %lu\n", Time().usecs()-ts);
+
+	std::string s;
+	ts = Time().usecs();
+	for (uint32_t i = 0; i < count; ++i) {
+		s = d2.toString();
+	}
+	printf("toString: %lu\n", Time().usecs()-ts);
+    printf("sizeof=%d\n", sizeof(DecimalDecNumber));
+
+}
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
-    ReasoningStore::init();
+    decNumber d1;
+    decNumberFromInt32(&d1, 5);
 
+    decNumber d2;
+    decNumberFromInt32(&d1, 2);
+
+    // int cnt = 100000;
+    // std::string s("world");
+    // int64 ts0 = Time().usecs();
+    // for (int i = 0; i < cnt; i++) {
+    //     StringBuilder sb(4096);
+    //     sb << 50 << "hello" << 'c' << s;
+    // }
+    // printf("%lld\n", Time().usecs()-ts0);
+    // ts0 = Time().usecs();
+    // std::string sss;
+    // sss.reserve(4096);
+    // for (int i = 0; i < cnt; i++) {
+    //     std::stringstream ss(sss);
+    //     ss << 50 << "hello" << 'c' << s;
+    // }
+    // printf("%lld\n", Time().usecs()-ts0);
+
+    // std::string s("one");
+    // std::string s2("hello");
+    // printf("size=%d cap=%d\n", s.size(), s.capacity());
+    // s = "hello";
+    // printf("size=%d cap=%d\n", s.size(), s.capacity());
+    // s = s2;
+    // printf("size=%d cap=%d\n", s.size(), s.capacity());
+    // s = "1";
+    // printf("size=%d cap=%d\n", s.size(), s.capacity());
+    // std::string e;
+    // s.swap(e);
+    // printf("size=%d cap=%d\n", s.size(), s.capacity());
+    return 0;
+
+    /*
+    printf("== main\n");
     uint32_t count = 1000000;
 	DecimalDecNumber d1(31400000000000000000.0);
 	DecimalDecNumber d2(314000000000.0);
@@ -352,24 +420,12 @@ int main(int argc, char* argv[])
 
     // std::shared_ptr< BasePrinter > a;
     BasePrinter* a;
-    const char* c1;
-    const char* c2;
-    const char* c3;
-    std::string n4;
-    std::shared_ptr< Log > l;
-    Log *raw = new Log();
-    std::list<Log*> mgr;
-    mgr.push_back(new Log());
-    mgr.push_back(new Log());
-    mgr.push_back(new Log());
 
 	uint64_t ts = Time().usecs();
-    // std::array<Log, 10> mgr;
-    // ReasoningAppender* appender = ReasoningStore::allocAppender();
     for (uint32_t i = 0; i < count; ++i) { 
         // a = make_printer("name=", name, " d1=", d1, " d2=", d2, " d3=", d3, " d4=", d4, " d5=", d5, " d6=", d6);
+
         ReasoningAppender* appender = ReasoningStore::allocAppender();
-        // ReasoningStore::freeAppenders(&appender, 1);
         appender->d1 = d1;
         appender->d2 = d2;
         appender->d3 = d3;
@@ -378,29 +434,9 @@ int main(int argc, char* argv[])
         appender->d6 = d6;
         NodeReasoning* node = ReasoningStore::allocNode();
         appendReasoning(node, appender);
-        CalcReasoning* calc = ReasoningStore::allocCalc();
-        appendNode(calc, node);
-        ReasoningStore::freeCalc(calc);
-        
-
-        // c1 = "this is a much longer hello, ";
-        // c2 = ", you are ";
-        // c3 = " years old = ";
-        // n4 = name;
-        // d5 = d;
-        // d6 = d2;
-        // l = std::make_shared<Log>(name, d, d2);
-        // delete l;
-        // static NullDeleter null_deleter;
-        // l = std::shared_ptr<Log>(raw, null_deleter);
-        // mgr.push_back(raw);
-        // raw = mgr.front();
-        // mgr.pop_front();
-        // raw = &mgr[5];
-        // raw = new Log();
-        // raw->s_ = name;
-        // raw->d1_ = d;
-        // raw->d2_ = d2;
+        BnetReasoning* bnet = ReasoningStore::allocBnet();
+        appendNodeReasoning(bnet, node);
+        ReasoningStore::freeBnet(bnet);
     }
     printf("%llu\n", Time().usecs()-ts);
 
@@ -482,5 +518,6 @@ int main(int argc, char* argv[])
 
 
 	return 0;
+    */
 }
 
