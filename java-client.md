@@ -386,7 +386,7 @@ to the bubblenet as:
 	// class BubbleNet
 	public SourceNode createSourceNode(String name, T initValue) {
 		SourceNode node = new SourceNode(this, initValue,name);
-		addNadedNode(node);
+		addNamedNode(node);
 		return node;
 	}
 	public ComputeNode createComputeNode1(String name, Node arg0, F1 f) {
@@ -569,7 +569,7 @@ When forward server sends fwd ticks, the marshaller sets up the proper content t
 		ml::panther::serialize::protocol::rates::defaults::DEFAULT_TICK_SIZE,
 		ProtocolConstants::MSG_FXFwdRateProtocol) {}
 
-For Panthe SPEC method invokation, messages are sent with content type MSG_PantherProtocol.
+For Panther SPEC method invokation, messages are sent with content type MSG_PantherProtocol.
 This message has in its header Topic and ReplyTopic. ReplyTopic is set only for methods
 that return responses. The header also contains an optional credential header of the
 format (principalType, principalId, appId), which is used by the gateway to associate
@@ -712,8 +712,7 @@ Spot is setup in:
 					FXSpotTickListener.class, SpotTickListener.class);
 
 			SPECContractManager.getInstance().registerSPECServerContractHandler(
-					FXSpotTickWithDepthListener.class,
-					SpotTickWithDepthListener.class);
+					FXSpotTickWithDepthListener.class, SpotTickWithDepthListener.class);
 			
 			// Skew listener implementation
 			SPECContractManager.getInstance().registerSPECServerContractHandler(
@@ -864,7 +863,334 @@ The setup is done in ServerUtils.java:
 	}
 
 
+# GUI TPS
+
+## Initialization: TPSManager.java
+
+Setup providers and tick listeners
+
+
+## Client Interface
+
+### FXOutrightQuoteManager.java
+
+It maintains three mappings:
+
+	Map<RequestMapper, FXOutrightSubscription> subscriptionMap;
+	Map<FXOutrightRequest, Set<FXTPSOutrightQuoteRequest> > requestMap; // map of quote listeners
+	Map<FXOutrightRequest, QuoteHolder> quoteMap;
+
+Entry point:
+
+	public void registerRequest(FXTPSOutrightQuoteRequest request) {
+		RequestMapper mapper = new RequestMapper(request);
+		FXOutrightSubscription subscription = subscriptionMap.get(mapper);
+		if (subscription == null) {
+			FXOutrightRequest userRequest = mapper.newRequest();
+			// the first param is publisher, so FXOutrightQuoteManager sets itself as
+			// the publisher of the subscription
+			subscription = SubscriptionFactory.getSubscription(this, userRequest  ...);
+			subscriptionMap.put(mapper, subscription);
+			requestMap.put(userRequest, Set<...>(request));
+			SubscriptionWorkflow.subscribe(subscription);
+		} else {
+			userRequest = subscription.getRequest();
+			Set<...> s = requestMap.get(userRequest);
+			s.add(request);
+			requestMap.put(userRequest, s);
+			quoteMap.get(specRequest).publish(request);
+		}
+	}
+
+	public void publish(FXOutrightRequest request, FXOutrightQuote quote, AuditGenerator auditGenerator, boolean isPriced) {
+        // update quoteMap
+        // for all request in requestMap, call QuoteHolder.publish on them
+    }
+
+
+### FXTPSOutrightQuoteRequest.java
+
+	private final FXTPSClient client;
+
+	protected void startListening()
+		client.subscribe(this);
+
+
+    public void publish(FXTPSOutrightQuote fxQuote) {
+        final Quote oldQuote = super.getQuote();
+        if (oldQuote instanceof Auditable) {
+            CLEAR_AUDIT_TIMER.schedule(new TimerTask() {
+                @Override
+				public void run() {
+                    ((Auditable) oldQuote).clearAudit();
+                }
+            }, CLEAR_AUDIT_TIMEOUT);
+        }
+        super.setQuote(fxQuote);
+    }
+
+    extends OutrightQuoteRequest extends AbstractQuoteRequest {
+
+    	private List listeners;
+	    private static final ListenerNotificationQueue NOTIFICATION_QUEUE = new ListenerNotificationQueue();
+
+	    public final void addQuoteListener(QuoteListener l) {
+	    	listeners.add(l);
+	    	if (firstListener)
+	    		startListening(); // triggers TPSClient.subscribe, see above
+	    }
+
+	    protected void setQuote(Quote quote) {
+            this.quote = quote;
+            if (!notificationScheduled) {
+                notificationScheduled = true;
+                // schedule notification logic to be carried out in a 
+                // different thread, which calls notifyQuoteChange on self
+                NOTIFICATION_QUEUE.addQueueItem(this, false);
+            }
+	    } 
+
+	    protected void notifyQuoteChange() {
+	        List notifyList = getListeners();
+	        if (notifyList != null) {
+	            for (Iterator iter = notifyList.iterator(); iter.hasNext();) {
+	                ((QuoteListener)iter.next()).quoteChanged(this);
+	            }
+	        }
+	    }
+    }
+
+### FXTPSClient.java
+
+    void subscribe(FXTPSOutrightQuoteRequest request) {
+        WorkItem wi = new WorkItem(true, request);
+        SUBSCRIPTION_WORK_QUEUE.addQueueItem(wi, false, false);
+    }
+
+    protected OutrightQuoteRequest getOutrightQuoteRequestImpl(...) {
+		return FXTPSOutrightQuoteRequest.newMutableQuoteRequest(this, ...);
+    }
+
+    TPSClient.java {
+
+    	// InstrumentKey: (Instrument, isSalesRate, qualifiersList)
+
+    	// InstrumentKey => QuoteRequest
+    	private final Map sharedQuotes = new HashMap();
+	    // InstrumentKey => QuoteHistory
+    	private final Map histories = new HashMap();
+
+    	// better to think of this as  InstrumentKey => (QuoteHistory, QuoteRequest)
+    	// indeed, the sharedQuotes map is redundant as the QuoteHistory instance
+    	// already contains the request object
+
+	    public synchronized QuoteHistory getQuoteHistory(Instrument instrument,
+	                                                     boolean salesRate,
+	                                                     List qualifiers, 
+	                                                     boolean ignoreNDFTenorCheck,
+	                                                     boolean inCompetition) {
+	        key = new InstrumentKey(...);
+	        QuoteHistory history = histories.get(key);
+	        if (history == null) {
+	        	QuoteRequest quoteRequest = getSharedQuoteRequest(...) {
+	        		// lookup request in sharedQuotes
+	        		// if not found, call getSharedQuoteRequestImpl to create it
+	        		// put the request into sharedQuotes
+	        	}
+	        	history = getQuoteHistory(quoteRequest); // create proper type of quote history that matches request type
+	        	histories.put(key, history);
+	        }
+	    }
+    }
+
+
+### QuoteHistory
+
+Used to keep track of price movements and a list of recently updated QuoteHistory
+
+	public abstract class QuoteHistory implements QuoteListener {
+		private final QuoteRequest quoteRequest;
+		private Quote currentQuote;
+		private List<QuoteHistoryListener> listeners;
+
+		public void addQuoteHistoryListener(QuoteHistoryListener l) {
+			listeners.add(l);
+			if firstListener
+				quoteRequest.addQuoteListener(this); // this triggers subscription
+		}
+	}
+
+### QuoteHistoryListener, the actual client
+
+	private class SpotQuoteHistoryListener implements QuoteHistoryListener {
+
+		private OutrightQuoteHistory spotQuoteHistory;
+
+		public void subscribe() {
+			Instrument instrument = ...;
+			PantherGroup group = ...;
+			TPSClient tpsClient = TPSClientFactory.getTPSClient(instrument, group);
+			spotQuoteHistory = (OutrightQuoteHistory) tpsClient.getQuoteHistory(instrument, false, new ArrayList(), true, true);
+			spotQuoteHistory.addQuoteHistoryListener(this);
+		}
+
+		public void unsubscribe() {
+			Instrument i = spotQuoteHistory.getInstrument();
+			spotQuoteHistory.removeQuoteHistoryListener(this);
+		}
+
+		@Override
+		public void quoteHistoryChanged(QuoteHistoryEvent evt) {
+			QuoteHistory history = evt.getQuoteHistory();
+			Quote quote = history.getLastQuote(); // race, quote may be modified
+			firePropertyChange("spotQuoteHistory", null, quote);
+
+			if (quote instanceof FXTPSOutrightQuote) {
+				lastQuote = (FXTPSOutrightQuote) quote;
+				updateSpotValues(lastQuote);
+			}
+		}
+	}
+
+
+Subscription:
+
+1. TPSClient maintains a map of QuoteHistory
+2. To receive quotes from it, request for QuoteHistory from TPSClient. 
+   a. If no matching history exists, a new QuoteHistory is created. 
+   b. Since QuoteHistory contains a QuoteRequest, the request is also created.
+
+3. Add self as quote listener to the QuoteHistory. 
+   a. If this is the first listener, QuoteHistory adds itself as quote listener of its QuoteRequest. 
+   b. If this is also the first listener, QuoteRequest calls TPSClient.subscribe with itself, 
+   c. which in turn calls FXOutrightQuoteManager.registerRequest with the QuoteRequest. 
+   d. FXOutrightQuoteManager adds the request to its request map and creates a subscription
+      for the request if it is the first request of its kind.
+
+4. Subscription.reload() calls DataTools.registerForMarketData(...) to subscribe:
+
+	EventForwarder eventForwarder = subscription.getEventForwarder();
+	String spotProfileName = subscription.getSpotProfileName();
+	BaseProvider bp = useDualProvider ? ProviderFactory.getDualSpotProvider(spotProfileName) : 
+										ProviderFactory.getSpotProvider(spotProfileName);
+	bp.registerListener(ccyPairName, eventForwarder, input.spot.getTickReference());
+
+
+Ticking Setup in TPSManager.initialise: 
+
+1. Setup tick listener class
+
+	SPECContractManager.getInstance().registerSPECServerContractHandler(
+      			FXSpotTickWithDepthListener.class, 
+      			SpotTickWithDepthListener.class);
+
+2. Setup session message decoder: 
+
+	Session session = SessionFactory.getSession(SessionFactory.PANTHER_SESSION_NAME);
+	session.registerProtocolHandler(new FXPricingProtocolHandler())
+
+3. FXPricingProtocolHandler's internal TickWorkQueue sets up its handler as
+   
+	// this should end up with SpotTickWithDepthListener 
+	spotTickWithDepthHandler = SPECContractManager.getInstance().getDefaultFactory()
+			.getSPECServerContractHandler(FXSpotTickWithDepthListener.class ...)
+
+4. ProviderFactory maintains a spot provider map based on profile names. The actual provider
+   implementation UnifiedSpotProviderImpl manages a spot client and nominates itself as
+   the clients spot listener
+
+	UnifiedSpotClient spotClient = new UnifiedSpotClient(profileName);
+
+	void onFirstListenerRegistered(Object ccyPair)
+		spotClient.subscribe((String)ccyPair, this); 
+
+	void onLastListenerRemoved(Object ccyPair, ...)
+		spotCleint.unsubscribe((String)ccyPair, this);
 
 
 
+Ticking:
+
+1. Decode incoming message: 
+
+	FXPricingProtocolHandler.handleMessageImpl(...): 
+   		switch (signature[0]) 
+  		case FX_SPOT_RATES_WITH_DEPTH_PROTOCOL:
+  	    	// decode the message as FXSpotTickWithDepth
+  	    	// add it to internal tickWorkQueue
+
+2. TickWorkQueue handles it by 
+
+	// Only a single thread is used to preserve tick order
+	TickWorkQueue extends AbstractWorkQueue
+
+	spotTickWithDepthHandler.onSpotTickWithDepth(...)
+
+3. SpotTickWithDepthListener.onSpotTickWithDepth:
+
+	// inefficient, should cache client !!!
+	UnifiedSpotClient c = getSpotProviderForTick(tick.getConfigId());
+	c.onSpotTickWithDepth(tick);
+
+	UnifiedSpotClient getSpotProviderForTick(long id)
+		FXSpotServerProfile p = FXSpotServerProfiles.getInstance().getSpotProfileById(id);
+		UnifiedSpotProvider sp;
+		if (p != null)
+			sp = ProviderFactory.getSpotProvider(p.getName());
+		else
+			sp = ProviderFactory.getSpotProvider(ProviderFactory.PROVIDER_SPOT_RV_KEY);
+		return sp.getSpotClient();
+
+4. UnifiedBaseSpotClient.onSpotTickWithDepth calls onSpotTickWithDepth(tick) on each listener
+5. UnifiedSpotProviderImpl.onSpotTickWithDepth: 
+
+	super.setData(tick.getCcyPair(), new SpotTickWrapper(tick));
+
+6. BaseProviderImpl.setData
+
+	// this is very inefficient, use compute instead
+	DataEntry entry = new DataEntry(data);
+	DataEntry oldEntry = dataMap.putIfAbsent(key, entry);
+	if (oldEntry != null)
+		oldEntry.setData(data);
+
+	BaseProviderImpl.DataEntry.setData(...) uses NOTIFYING_WORK_QUEUE to schedule
+	async call of doNotify on each listener
+	
+7. UnifiedSpotProviderImpl.doNotify
+
+	listener.onEvent(new TickProviderDataEvent(Constants.EVENT_SPOT_TICK_WITH_DEPTH, 
+		"Spot Tick Provider", target, data));
+
+8. TPSEventForwarder.onEvent(event) calls Subscription.onEvent(event)
+
+	// !!! do we really need to use KeyedEventList for this ?
+	private KeyedEventList<TPSEvent> keyedEventList;
+
+	Subscription.onEvent(event)
+		// note the strange remove & add sequence, this is probably to ensure
+		// that an ADD instead of CHANGE event to be fired, in the context of
+		// GUI TPS, do we need this kind of events ?
+		synchronized(eventLock) {
+			keyedEventList.removeObjectWihtKey(event.getKey());
+			keyedEventList.add(event);
+		}
+		handleOnEvent(event);
+
+	FXOutrightSubscription.handleOnEvent(event)
+		SubscriptionWorkflow.enqueueForCalculating(this);
+
+
+Publishing:
+
+1. Subscription.consistentCalculate calls Subscription.getPendingEvents() to get events and process,
+   then calls FXOutrightQuoteManager.publish,
+2. which calls QuoteHolder.publish for each FXTPSOutrightQuoteRequest,
+3. which wraps the quote in FXTPSOutrightQuote and calls FXTPSOutrightQuoteRequest.publish
+4. which calls super.setQuote, AbstractQuoteRequest.setQuote updates local quote and enques itself in NOTIFICATION_QUEUE
+5. which calls AbstractQuoteRequest.notifyQuoteChange that calls QuoteHistory.quoteChanged(AbstractQuoteRequest) on all listeners
+6. QuoteHistory.quoteChanged
+   a. calls quoteAdjuster on the quote if necessary
+   b. calls handleNewQuoteImpl, for OutrightQuoteHistory, it updates various price movements indicators
+   c. calls QuoteHistoryListener.quoteHistoryChanged on all listeners with two evets: QUOTE-ADDED, INDICATORS-CHANGED
 
